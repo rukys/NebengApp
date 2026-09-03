@@ -24,7 +24,7 @@ android {
     defaultConfig {
         applicationId = "com.disinidev.nebeng"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0.0"
 
@@ -51,6 +51,21 @@ android {
         }
     }
 
+    flavorDimensions += "env"
+
+    productFlavors {
+        create("dev") {
+            dimension = "env"
+            applicationId = "com.disinidev.nebeng.dev"
+            versionNameSuffix = "-dev"
+            resValue("string", "app_name", "Nebeng Dev")
+        }
+        create("production") {
+            dimension = "env"
+            applicationId = "com.disinidev.nebeng"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -59,6 +74,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        resValues = true
     }
 
     packaging {
