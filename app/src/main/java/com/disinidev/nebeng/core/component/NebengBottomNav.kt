@@ -1,15 +1,15 @@
 package com.disinidev.nebeng.core.component
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.DirectionsCar
@@ -41,14 +41,15 @@ fun NebengBottomNav(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(64.dp),
+        modifier = modifier.fillMaxWidth(),
         color = NebengColor.Primary0,
         shadowElevation = 8.dp
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .height(64.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -59,6 +60,7 @@ fun NebengBottomNav(
                 Column(
                     modifier = Modifier
                         .weight(1f)
+                        .fillMaxHeight()
                         .clickable { onTabSelected(tab) }
                         .padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,

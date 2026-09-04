@@ -14,6 +14,7 @@ data class User(
     val officeLat: Double? = null,
     val officeLng: Double? = null,
     val bio: String? = null,
+    val qrisImageUrl: String? = null,
     val ktpVerified: Boolean = false,
     val officeVerified: Boolean = false,
     val averageRating: Float = 0.0f,

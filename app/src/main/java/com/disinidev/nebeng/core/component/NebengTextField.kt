@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -59,6 +60,8 @@ fun NebengTextField(
     errorMessage: String? = null,
     enabled: Boolean = true,
     singleLine: Boolean = true,
+    minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default
 ) {
@@ -80,11 +83,17 @@ fun NebengTextField(
         if (!label.isNullOrEmpty()) {
             Text(
                 text = label,
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = NebengColor.Gray800,
-                modifier = Modifier.padding(bottom = 6.dp)
+                color = if (isError) NebengColor.Danger600 else NebengColor.Gray800,
+                modifier = Modifier.padding(bottom = NebengSpacing.Sm)
             )
+        }
+
+        val heightModifier = if (singleLine) {
+            Modifier.height(52.dp)
+        } else {
+            Modifier.defaultMinSize(minHeight = 80.dp).padding(vertical = 12.dp)
         }
 
         BasicTextField(
@@ -92,12 +101,14 @@ fun NebengTextField(
             onValueChange = onValueChange,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .then(heightModifier)
                 .clip(RoundedCornerShape(NebengRadius.Md))
                 .background(backgroundColor)
                 .border(borderWidth, borderColor, RoundedCornerShape(NebengRadius.Md)),
             enabled = enabled,
             singleLine = singleLine,
+            minLines = minLines,
+            maxLines = maxLines,
             textStyle = TextStyle(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Normal,
@@ -113,7 +124,7 @@ fun NebengTextField(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = NebengSpacing.Lg),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top
                 ) {
                     if (leadingIcon != null) {
                         Icon(

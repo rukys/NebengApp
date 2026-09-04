@@ -10,9 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Commute
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.TwoWheeler
-import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,7 +30,8 @@ import com.disinidev.nebeng.core.designsystem.NebengRadius
 enum class ServiceType(val label: String, val icon: ImageVector) {
     CAR("Mobil", Icons.Default.DirectionsCar),
     MOTORCYCLE("Motor", Icons.Default.TwoWheeler),
-    OFFER_RIDE("Beri Tebeng", Icons.Default.VolunteerActivism)
+    OFFER_RIDE("Beri Tebeng", Icons.Default.Commute),
+    ROUTINE("Rutin", Icons.Default.CalendarToday)
 }
 
 @Composable

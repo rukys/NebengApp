@@ -17,7 +17,6 @@ data class Ride(
     val dropoffLng: Double,
     val routePolyline: String? = null,
     val departureTime: Instant,
-    val pricePerSeat: Int,
     val status: RideStatus = RideStatus.AVAILABLE,
     val notes: String? = null,
     val createdAt: Instant = Instant.now()

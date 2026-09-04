@@ -15,7 +15,6 @@ data class Notification(
 
 enum class NotificationCategory {
     TRIP,
-    PROMO,
     REVIEW,
     SYSTEM;
 

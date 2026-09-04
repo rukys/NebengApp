@@ -1,10 +1,12 @@
 -- ==============================================================================
--- NEBENG DATABASE MIGRATION - MASTER FULL SCHEMA
+-- NEBENG DATABASE MIGRATION - MASTER FULL SCHEMA (FREE COMMUNITY RIDESHARING)
 -- Platform: Supabase PostgreSQL with PostGIS
+-- Last Updated: 2026-09-04
 -- ==============================================================================
 
 -- 0. EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ==============================================================================
 -- 1. TABLES
@@ -22,6 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
     office_address TEXT,
     office_location GEOGRAPHY(POINT, 4326),
     bio TEXT,
+    qris_image_url TEXT,                     -- Foto QRIS driver untuk tampung tip (opsional)
     ktp_verified BOOLEAN DEFAULT FALSE,
     office_verified BOOLEAN DEFAULT FALSE,
     average_rating DECIMAL(2,1) DEFAULT 0.0,
@@ -64,7 +67,7 @@ CREATE TABLE IF NOT EXISTS rides (
     dropoff_location GEOGRAPHY(POINT, 4326) NOT NULL,
     route_polyline TEXT,
     departure_time TIMESTAMPTZ NOT NULL,
-    price_per_seat INTEGER NOT NULL,
+    -- TIDAK ADA price_per_seat -- Nebeng 100% gratis
     status TEXT DEFAULT 'available' CHECK (status IN ('available', 'full', 'ongoing', 'done', 'cancelled')),
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -76,12 +79,9 @@ CREATE TABLE IF NOT EXISTS bookings (
     ride_id UUID NOT NULL REFERENCES rides(id) ON DELETE CASCADE,
     passenger_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     seat_position TEXT NOT NULL CHECK (seat_position IN ('front_left', 'rear_left', 'rear_center', 'rear_right', 'pillion')),
-    pickup_pin TEXT NOT NULL,
+    pickup_pin TEXT NOT NULL,               -- 6-digit PIN konfirmasi jemput
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'picked_up', 'done', 'cancelled')),
-    voucher_code TEXT,
-    base_price INTEGER NOT NULL,
-    discount_amount INTEGER DEFAULT 0,
-    final_price INTEGER NOT NULL,
+    has_tipped BOOLEAN DEFAULT FALSE,       -- true jika user memilih kasih tip (jumlah tidak disimpan)
     passenger_rating INTEGER CHECK (passenger_rating BETWEEN 1 AND 5),
     driver_rating INTEGER CHECK (driver_rating BETWEEN 1 AND 5),
     passenger_review TEXT,
@@ -90,42 +90,11 @@ CREATE TABLE IF NOT EXISTS bookings (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 1.5 PAYMENTS
-CREATE TABLE IF NOT EXISTS payments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(id),
-    amount INTEGER NOT NULL,
-    method TEXT NOT NULL CHECK (method IN ('qris', 'bca_transfer', 'mandiri_transfer', 'bri_transfer', 'bni_transfer', 'gopay', 'ovo', 'shopeepay', 'dana', 'transfer')),
-    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'success', 'failed', 'expired', 'refunded')),
-    midtrans_order_id TEXT UNIQUE,
-    midtrans_transaction_id TEXT,
-    qr_code_url TEXT,
-    expired_at TIMESTAMPTZ,
-    paid_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 1.6 VOUCHERS
-CREATE TABLE IF NOT EXISTS vouchers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code TEXT UNIQUE NOT NULL,
-    discount_type TEXT NOT NULL CHECK (discount_type IN ('fixed', 'percentage')),
-    discount_value INTEGER NOT NULL,
-    max_discount INTEGER,
-    min_order INTEGER DEFAULT 0,
-    usage_limit INTEGER,
-    used_count INTEGER DEFAULT 0,
-    valid_from TIMESTAMPTZ NOT NULL,
-    valid_until TIMESTAMPTZ NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE
-);
-
--- 1.7 NOTIFICATIONS
+-- 1.5 NOTIFICATIONS
 CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    category TEXT NOT NULL CHECK (category IN ('trip', 'promo', 'review', 'system')),
+    category TEXT NOT NULL CHECK (category IN ('trip', 'review', 'system')),
     title TEXT NOT NULL,
     body TEXT NOT NULL,
     action_url TEXT,
@@ -133,7 +102,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 1.8 TRIP LOCATIONS (Realtime tracking)
+-- 1.6 TRIP LOCATIONS (Realtime tracking)
 CREATE TABLE IF NOT EXISTS trip_locations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     booking_id UUID NOT NULL UNIQUE REFERENCES bookings(id) ON DELETE CASCADE,
@@ -158,129 +127,105 @@ CREATE INDEX IF NOT EXISTS bookings_passenger_id_idx ON bookings (passenger_id);
 CREATE INDEX IF NOT EXISTS bookings_ride_id_idx ON bookings (ride_id);
 CREATE INDEX IF NOT EXISTS bookings_status_idx ON bookings (status);
 
--- notifications: query per user
+-- notifications: query per user (unread)
 CREATE INDEX IF NOT EXISTS notifications_user_id_idx ON notifications (user_id);
 CREATE INDEX IF NOT EXISTS notifications_is_read_idx ON notifications (is_read) WHERE is_read = false;
-
--- payments: lookup by midtrans order
-CREATE UNIQUE INDEX IF NOT EXISTS payments_midtrans_order_id_idx ON payments (midtrans_order_id)
-    WHERE midtrans_order_id IS NOT NULL;
 
 -- trip_locations: realtime lookup
 CREATE UNIQUE INDEX IF NOT EXISTS trip_locations_booking_id_idx ON trip_locations (booking_id);
 
 -- ==============================================================================
--- 3. ROW LEVEL SECURITY (RLS)
+-- 3. ROW LEVEL SECURITY (RLS) POLICIES
 -- ==============================================================================
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vehicle_registrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rides ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE vouchers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trip_locations ENABLE ROW LEVEL SECURITY;
 
--- USERS POLICIES
-DROP POLICY IF EXISTS "Users: read own" ON users;
+-- 3.1 USERS
 CREATE POLICY "Users: read own" ON users
     FOR SELECT USING (firebase_uid = auth.uid()::text);
 
-DROP POLICY IF EXISTS "Users: update own" ON users;
 CREATE POLICY "Users: update own" ON users
     FOR UPDATE USING (firebase_uid = auth.uid()::text);
 
-DROP POLICY IF EXISTS "Users: insert own on register" ON users;
 CREATE POLICY "Users: insert own on register" ON users
     FOR INSERT WITH CHECK (firebase_uid = auth.uid()::text);
 
-DROP POLICY IF EXISTS "Users: read public profile" ON users;
 CREATE POLICY "Users: read public profile" ON users
     FOR SELECT USING (true);
 
--- VEHICLE POLICIES
-DROP POLICY IF EXISTS "Vehicles: driver read own" ON vehicle_registrations;
-CREATE POLICY "Vehicles: driver read own" ON vehicle_registrations
-    FOR SELECT USING (driver_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1));
+-- 3.2 VEHICLE REGISTRATIONS
+CREATE POLICY "Vehicle: driver CRUD own" ON vehicle_registrations
+    FOR ALL USING (
+        driver_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1)
+    );
 
-DROP POLICY IF EXISTS "Vehicles: driver CRUD own" ON vehicle_registrations;
-CREATE POLICY "Vehicles: driver CRUD own" ON vehicle_registrations
-    FOR ALL USING (driver_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1));
+CREATE POLICY "Vehicle: anyone read verified" ON vehicle_registrations
+    FOR SELECT USING (is_verified = true);
 
--- RIDES POLICIES
-DROP POLICY IF EXISTS "Rides: anyone read available" ON rides;
+-- 3.3 RIDES
 CREATE POLICY "Rides: anyone read available" ON rides
-    FOR SELECT USING (status IN ('available', 'full'));
+    FOR SELECT USING (status = 'available');
 
-DROP POLICY IF EXISTS "Rides: driver CRUD own" ON rides;
 CREATE POLICY "Rides: driver CRUD own" ON rides
-    FOR ALL USING (driver_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1));
+    FOR ALL USING (
+        driver_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1)
+    );
 
--- BOOKINGS POLICIES
-DROP POLICY IF EXISTS "Bookings: passenger read own" ON bookings;
+-- 3.4 BOOKINGS
 CREATE POLICY "Bookings: passenger read own" ON bookings
-    FOR SELECT USING (passenger_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1));
+    FOR SELECT USING (
+        passenger_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1)
+    );
 
-DROP POLICY IF EXISTS "Bookings: driver read bookings on own rides" ON bookings;
 CREATE POLICY "Bookings: driver read bookings on own rides" ON bookings
     FOR SELECT USING (
-        ride_id IN (SELECT id FROM rides WHERE driver_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1))
+        ride_id IN (
+            SELECT id FROM rides
+            WHERE driver_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1)
+        )
     );
 
-DROP POLICY IF EXISTS "Bookings: passenger insert" ON bookings;
 CREATE POLICY "Bookings: passenger insert" ON bookings
-    FOR INSERT WITH CHECK (passenger_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1));
+    FOR INSERT WITH CHECK (
+        passenger_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1)
+    );
 
-DROP POLICY IF EXISTS "Bookings: update if involved" ON bookings;
-CREATE POLICY "Bookings: update if involved" ON bookings
+CREATE POLICY "Bookings: passenger update has_tipped" ON bookings
     FOR UPDATE USING (
         passenger_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1)
-        OR ride_id IN (SELECT id FROM rides WHERE driver_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1))
     );
 
--- PAYMENTS POLICIES
-DROP POLICY IF EXISTS "Payments: read own" ON payments;
-CREATE POLICY "Payments: read own" ON payments
-    FOR SELECT USING (user_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1));
-
--- VOUCHERS POLICIES
-DROP POLICY IF EXISTS "Vouchers: anyone read active" ON vouchers;
-CREATE POLICY "Vouchers: anyone read active" ON vouchers
-    FOR SELECT USING (is_active = true AND valid_until >= NOW());
-
--- NOTIFICATIONS POLICIES
-DROP POLICY IF EXISTS "Notifications: read own" ON notifications;
+-- 3.5 NOTIFICATIONS
 CREATE POLICY "Notifications: read own" ON notifications
-    FOR SELECT USING (user_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1));
+    FOR SELECT USING (
+        user_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1)
+    );
 
-DROP POLICY IF EXISTS "Notifications: update own" ON notifications;
-CREATE POLICY "Notifications: update own" ON notifications
-    FOR UPDATE USING (user_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1));
+CREATE POLICY "Notifications: update own (mark read)" ON notifications
+    FOR UPDATE USING (
+        user_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1)
+    );
 
--- TRIP LOCATIONS POLICIES
-DROP POLICY IF EXISTS "TripLocations: read if involved" ON trip_locations;
+-- 3.6 TRIP LOCATIONS
 CREATE POLICY "TripLocations: read if involved" ON trip_locations
     FOR SELECT USING (
         booking_id IN (
             SELECT id FROM bookings
             WHERE passenger_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1)
-            OR ride_id IN (SELECT id FROM rides WHERE driver_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1))
-        )
-    );
-
-DROP POLICY IF EXISTS "TripLocations: driver upsert own" ON trip_locations;
-CREATE POLICY "TripLocations: driver upsert own" ON trip_locations
-    FOR ALL USING (
-        booking_id IN (
-            SELECT b.id FROM bookings b
-            JOIN rides r ON b.ride_id = r.id
-            WHERE r.driver_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1)
+            OR ride_id IN (
+                SELECT id FROM rides
+                WHERE driver_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1)
+            )
         )
     );
 
 -- ==============================================================================
--- 4. RPC FUNCTIONS
+-- 4. RPC / STORED FUNCTIONS
 -- ==============================================================================
 
 -- 4.1 search_nearby_rides()
@@ -306,17 +251,14 @@ RETURNS SETOF rides AS $$
         AND r.available_seats > 0
     ORDER BY
         ST_Distance(r.pickup_location, ST_MakePoint(user_lng, user_lat)::geography) ASC,
-        r.price_per_seat ASC;
+        r.departure_time ASC;
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
 
--- 4.2 book_seat() dengan Concurrency Lock (Row-level lock FOR UPDATE)
+-- 4.2 book_seat() (Atomic concurrency row-lock)
 CREATE OR REPLACE FUNCTION book_seat(
     p_ride_id UUID,
     p_passenger_id UUID,
-    p_seat_position TEXT,
-    p_base_price INTEGER,
-    p_discount_amount INTEGER,
-    p_voucher_code TEXT DEFAULT NULL
+    p_seat_position TEXT
 )
 RETURNS UUID AS $$
 DECLARE
@@ -324,7 +266,7 @@ DECLARE
     v_current_seats INTEGER;
     v_pickup_pin TEXT;
 BEGIN
-    -- Lock row untuk cegah race condition double-booking
+    -- Lock row untuk prevent race condition
     SELECT available_seats INTO v_current_seats
     FROM rides WHERE id = p_ride_id FOR UPDATE;
 
@@ -332,7 +274,7 @@ BEGIN
         RAISE EXCEPTION 'Kursi sudah penuh';
     END IF;
 
-    -- Check posisi kursi belum ditempati
+    -- Check seat position belum ditempati
     IF EXISTS (
         SELECT 1 FROM bookings
         WHERE ride_id = p_ride_id
@@ -342,16 +284,14 @@ BEGIN
         RAISE EXCEPTION 'Kursi sudah dipesan';
     END IF;
 
-    -- Generate PIN jemput 6 digit acak
+    -- Generate PIN 6 digit
     v_pickup_pin := LPAD(FLOOR(RANDOM() * 1000000)::TEXT, 6, '0');
 
-    -- Insert booking
+    -- Insert booking (gratis, tanpa kolom harga)
     INSERT INTO bookings (
-        ride_id, passenger_id, seat_position, pickup_pin,
-        base_price, discount_amount, final_price, voucher_code, status
+        ride_id, passenger_id, seat_position, pickup_pin, status
     ) VALUES (
-        p_ride_id, p_passenger_id, p_seat_position, v_pickup_pin,
-        p_base_price, p_discount_amount, p_base_price - p_discount_amount, p_voucher_code, 'pending'
+        p_ride_id, p_passenger_id, p_seat_position, v_pickup_pin, 'pending'
     ) RETURNING id INTO v_booking_id;
 
     -- Decrement sisa kursi
@@ -380,6 +320,14 @@ RETURNS void AS $$
             AND status = 'done'
         )
     WHERE id = p_user_id;
+$$ LANGUAGE sql SECURITY DEFINER;
+
+-- 4.4 mark_tip() — Set has_tipped = true
+CREATE OR REPLACE FUNCTION mark_tip(p_booking_id UUID)
+RETURNS void AS $$
+    UPDATE bookings SET has_tipped = true
+    WHERE id = p_booking_id
+    AND passenger_id = (SELECT id FROM users WHERE firebase_uid = auth.uid()::text LIMIT 1);
 $$ LANGUAGE sql SECURITY DEFINER;
 
 -- ==============================================================================
@@ -429,8 +377,9 @@ CREATE TRIGGER rides_check_availability
 INSERT INTO storage.buckets (id, name, public)
 VALUES 
     ('avatars', 'avatars', true),
-    ('stnk', 'stnk', false),
-    ('payment_proofs', 'payment_proofs', false)
+    ('ktp-documents', 'ktp-documents', false),
+    ('stnk-documents', 'stnk-documents', false),
+    ('qris-images', 'qris-images', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage RLS
@@ -442,5 +391,16 @@ DROP POLICY IF EXISTS "Users can upload own avatar" ON storage.objects;
 CREATE POLICY "Users can upload own avatar" ON storage.objects
     FOR INSERT WITH CHECK (
         bucket_id = 'avatars' 
+        AND auth.role() = 'authenticated'
+    );
+
+DROP POLICY IF EXISTS "Public QRIS images viewable" ON storage.objects;
+CREATE POLICY "Public QRIS images viewable" ON storage.objects
+    FOR SELECT USING (bucket_id = 'qris-images');
+
+DROP POLICY IF EXISTS "Drivers can upload own QRIS image" ON storage.objects;
+CREATE POLICY "Drivers can upload own QRIS image" ON storage.objects
+    FOR INSERT WITH CHECK (
+        bucket_id = 'qris-images' 
         AND auth.role() = 'authenticated'
     );
