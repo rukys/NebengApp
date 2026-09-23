@@ -1,5 +1,11 @@
 package com.disinidev.nebeng.core.navigation
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,13 +28,44 @@ fun NebengNavGraph(
     NavHost(
         navController = navController,
         startDestination = startDestination,
-        modifier = modifier
+        modifier = modifier,
+        enterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { fullWidth -> fullWidth },
+                animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 300))
+        },
+        exitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { fullWidth -> -fullWidth / 4 },
+                animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 200))
+        },
+        popEnterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { fullWidth -> -fullWidth / 4 },
+                animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 200))
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { fullWidth -> fullWidth },
+                animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 300))
+        }
     ) {
         // --- Auth Flow ---
-        composable<NavDestination.Splash> {
+        composable<NavDestination.Splash>(
+            exitTransition = { fadeOut(animationSpec = tween(300)) }
+        ) {
             com.disinidev.nebeng.presentation.auth.splash.SplashScreen(
                 onNavigateToHome = {
                     navController.navigate(NavDestination.Home) {
+                        popUpTo(NavDestination.Splash) { inclusive = true }
+                    }
+                },
+                onNavigateToLogin = {
+                    navController.navigate(NavDestination.Login) {
                         popUpTo(NavDestination.Splash) { inclusive = true }
                     }
                 },
@@ -65,7 +102,7 @@ fun NebengNavGraph(
                 },
                 onNavigateToHome = {
                     navController.navigate(NavDestination.Home) {
-                        popUpTo(NavDestination.Login) { inclusive = true }
+                        popUpTo(navController.graph.id) { inclusive = true }
                     }
                 }
             )
@@ -86,6 +123,11 @@ fun NebengNavGraph(
                     navController.navigate(NavDestination.Login) {
                         popUpTo(NavDestination.Register) { inclusive = true }
                         launchSingleTop = true
+                    }
+                },
+                onNavigateToHome = {
+                    navController.navigate(NavDestination.Home) {
+                        popUpTo(navController.graph.id) { inclusive = true }
                     }
                 }
             )
@@ -121,14 +163,19 @@ fun NebengNavGraph(
                 },
                 onNavigateToNext = {
                     navController.navigate(NavDestination.Home) {
-                        popUpTo(NavDestination.Splash) { inclusive = true }
+                        popUpTo(navController.graph.id) { inclusive = true }
                     }
                 }
             )
         }
 
         // --- Main Tabs ---
-        composable<NavDestination.Home> {
+        composable<NavDestination.Home>(
+            enterTransition = { fadeIn(animationSpec = tween(150)) },
+            exitTransition = { fadeOut(animationSpec = tween(150)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(150)) },
+            popExitTransition = { fadeOut(animationSpec = tween(150)) }
+        ) {
             com.disinidev.nebeng.presentation.home.HomeScreen(
                 onNavigateToNotifications = {
                     navController.navigate(NavDestination.Notifications)
@@ -146,7 +193,7 @@ fun NebengNavGraph(
                     navController.navigate(NavDestination.RideDetail(rideId = rideId))
                 },
                 onNavigateToCheckout = { rideId ->
-                    navController.navigate(NavDestination.Checkout(rideId = rideId, seatPosition = "A2"))
+                    navController.navigate(NavDestination.CheckoutCar(rideId = rideId))
                 },
                 onTabSelected = { tab ->
                     when (tab) {
@@ -159,16 +206,111 @@ fun NebengNavGraph(
             )
         }
 
-        composable<NavDestination.Activity> {
-            PlaceholderScreen(name = "Activity Screen")
+        composable<NavDestination.Activity>(
+            enterTransition = { fadeIn(animationSpec = tween(150)) },
+            exitTransition = { fadeOut(animationSpec = tween(150)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(150)) },
+            popExitTransition = { fadeOut(animationSpec = tween(150)) }
+        ) {
+            com.disinidev.nebeng.presentation.activity.ActivityScreen(
+                onTabSelected = { tab ->
+                    when (tab) {
+                        com.disinidev.nebeng.core.component.NebengTab.BERANDA -> navController.navigate(NavDestination.Home)
+                        com.disinidev.nebeng.core.component.NebengTab.AKTIVITAS -> { /* already on activity */ }
+                        com.disinidev.nebeng.core.component.NebengTab.PESAN -> navController.navigate(NavDestination.Messages)
+                        com.disinidev.nebeng.core.component.NebengTab.AKUN -> navController.navigate(NavDestination.Profile)
+                    }
+                },
+                onNavigateToLiveTracking = { bookingId ->
+                    navController.navigate(NavDestination.LiveTracking(bookingId = bookingId))
+                },
+                onNavigateToTripDone = { bookingId ->
+                    navController.navigate(NavDestination.TripDone(bookingId = bookingId))
+                }
+            )
         }
 
-        composable<NavDestination.Messages> {
-            PlaceholderScreen(name = "Messages Screen")
+        composable<NavDestination.Messages>(
+            enterTransition = { fadeIn(animationSpec = tween(150)) },
+            exitTransition = { fadeOut(animationSpec = tween(150)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(150)) },
+            popExitTransition = { fadeOut(animationSpec = tween(150)) }
+        ) {
+            com.disinidev.nebeng.presentation.chat.ConversationsScreen(
+                onTabSelected = { tab ->
+                    when (tab) {
+                        com.disinidev.nebeng.core.component.NebengTab.BERANDA -> navController.navigate(NavDestination.Home)
+                        com.disinidev.nebeng.core.component.NebengTab.AKTIVITAS -> navController.navigate(NavDestination.Activity)
+                        com.disinidev.nebeng.core.component.NebengTab.PESAN -> { /* already on messages */ }
+                        com.disinidev.nebeng.core.component.NebengTab.AKUN -> navController.navigate(NavDestination.Profile)
+                    }
+                },
+                onNavigateToChat = { driverName, vehicleInfo, pin ->
+                    navController.navigate(
+                        NavDestination.ChatDetail(
+                            driverName = driverName,
+                            vehicleInfo = vehicleInfo,
+                            pin = pin
+                        )
+                    )
+                }
+            )
         }
 
-        composable<NavDestination.Profile> {
-            PlaceholderScreen(name = "Profile Screen")
+        composable<NavDestination.ChatDetail> { backStackEntry ->
+            com.disinidev.nebeng.presentation.chat.ChatScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable<NavDestination.Profile>(
+            enterTransition = { fadeIn(animationSpec = tween(150)) },
+            exitTransition = { fadeOut(animationSpec = tween(150)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(150)) },
+            popExitTransition = { fadeOut(animationSpec = tween(150)) }
+        ) {
+            com.disinidev.nebeng.presentation.profile.ProfileScreen(
+                onNavigateToSettings = {
+                    navController.navigate(NavDestination.Settings)
+                },
+                onNavigateToEditProfile = {
+                    navController.navigate(NavDestination.EditProfile)
+                },
+                onTabSelected = { tab ->
+                    when (tab) {
+                        com.disinidev.nebeng.core.component.NebengTab.BERANDA -> navController.navigate(NavDestination.Home)
+                        com.disinidev.nebeng.core.component.NebengTab.AKTIVITAS -> navController.navigate(NavDestination.Activity)
+                        com.disinidev.nebeng.core.component.NebengTab.PESAN -> navController.navigate(NavDestination.Messages)
+                        com.disinidev.nebeng.core.component.NebengTab.AKUN -> { /* already on profile */ }
+                    }
+                }
+            )
+        }
+
+        composable<NavDestination.Settings> {
+            com.disinidev.nebeng.presentation.settings.SettingsScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToEditProfile = {
+                    navController.navigate(NavDestination.EditProfile)
+                },
+                onLogoutSuccess = {
+                    navController.navigate(NavDestination.Login) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable<NavDestination.EditProfile> {
+            com.disinidev.nebeng.presentation.profile.edit.EditProfileScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
         }
 
         composable<NavDestination.Notifications> {
@@ -184,13 +326,47 @@ fun NebengNavGraph(
 
         // --- Search & Rides ---
         composable<NavDestination.Search> { backStackEntry ->
-            val route = backStackEntry.toRoute<NavDestination.Search>()
-            PlaceholderScreen(name = "Search (${route.vehicleType})")
+            com.disinidev.nebeng.presentation.search.form.SearchFormScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToSearchResults = { pickup, dropoff, vehicleType, pickupLat, pickupLng, departureTime ->
+                    navController.navigate(
+                        NavDestination.SearchResults(
+                            pickupAddress = pickup,
+                            dropoffAddress = dropoff,
+                            vehicleType = vehicleType,
+                            pickupLat = pickupLat,
+                            pickupLng = pickupLng,
+                            departureTime = departureTime
+                        )
+                    )
+                }
+            )
         }
 
         composable<NavDestination.SearchResults> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.SearchResults>()
-            PlaceholderScreen(name = "Search Results: ${route.pickupAddress} -> ${route.dropoffAddress}")
+            com.disinidev.nebeng.presentation.search.results.SearchResultsScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onEditRouteClick = {
+                    navController.popBackStack()
+                },
+                onNavigateToRideDetail = { rideId ->
+                    navController.navigate(NavDestination.RideDetail(rideId = rideId))
+                },
+                onNavigateToCheckoutCar = { rideId ->
+                    navController.navigate(NavDestination.CheckoutCar(rideId = rideId))
+                },
+                onNavigateToCheckoutMotor = { rideId ->
+                    navController.navigate(NavDestination.CheckoutMotor(rideId = rideId))
+                },
+                onNavigateToOfferRide = {
+                    navController.navigate(NavDestination.Search(vehicleType = "car"))
+                }
+            )
         }
 
         composable<NavDestination.RideDetail> { backStackEntry ->
@@ -198,10 +374,29 @@ fun NebengNavGraph(
             PlaceholderScreen(name = "Ride Detail: ${route.rideId}")
         }
 
-        // --- Booking & Payment ---
-        composable<NavDestination.Checkout> { backStackEntry ->
-            val route = backStackEntry.toRoute<NavDestination.Checkout>()
-            PlaceholderScreen(name = "Checkout: Ride ${route.rideId}, Seat ${route.seatPosition}")
+        // --- Booking Flow ---
+        composable<NavDestination.CheckoutCar> { backStackEntry ->
+            val route = backStackEntry.toRoute<NavDestination.CheckoutCar>()
+            com.disinidev.nebeng.presentation.checkout.CheckoutCarScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onConfirmBooking = { rideId, seatPosition ->
+                    navController.navigate(NavDestination.LiveTracking(bookingId = "booking_$rideId"))
+                }
+            )
+        }
+
+        composable<NavDestination.CheckoutMotor> { backStackEntry ->
+            val route = backStackEntry.toRoute<NavDestination.CheckoutMotor>()
+            com.disinidev.nebeng.presentation.checkout.CheckoutMotorScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onConfirmBooking = { rideId, helmetChoice ->
+                    navController.navigate(NavDestination.LiveTracking(bookingId = "booking_$rideId"))
+                }
+            )
         }
 
         composable<NavDestination.Payment> { backStackEntry ->
@@ -217,12 +412,37 @@ fun NebengNavGraph(
         // --- Tracking ---
         composable<NavDestination.LiveTracking> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.LiveTracking>()
-            PlaceholderScreen(name = "Live Tracking for Booking ${route.bookingId}")
+            com.disinidev.nebeng.presentation.tracking.LiveTrackingScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToChat = { driverName, bookingId ->
+                    navController.navigate(
+                        NavDestination.ChatDetail(
+                            driverName = driverName,
+                            vehicleInfo = if (bookingId.contains("ride_2")) "Yamaha NMAX Hitam" else "Avanza Silver",
+                            pin = if (bookingId.contains("ride_2")) "215 889" else "489 201"
+                        )
+                    )
+                }
+            )
         }
 
         composable<NavDestination.TripDone> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.TripDone>()
-            PlaceholderScreen(name = "Trip Done for Booking ${route.bookingId}")
+            com.disinidev.nebeng.presentation.tripdone.TripDoneScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onSkip = {
+                    navController.navigate(NavDestination.Home) {
+                        popUpTo(NavDestination.Home) { inclusive = true }
+                    }
+                },
+                onSubmitComplete = {
+                    navController.navigate(NavDestination.Home) {
+                        popUpTo(NavDestination.Home) { inclusive = true }
+                    }
+                }
+            )
         }
 
         composable<NavDestination.Tip> { backStackEntry ->

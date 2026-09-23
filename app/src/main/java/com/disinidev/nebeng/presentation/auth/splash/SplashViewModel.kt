@@ -2,6 +2,7 @@ package com.disinidev.nebeng.presentation.auth.splash
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.disinidev.nebeng.domain.repository.UserPreferencesRepository
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
@@ -14,12 +15,14 @@ import javax.inject.Inject
 sealed interface SplashUiState {
     data object Loading : SplashUiState
     data object NavigateToHome : SplashUiState
+    data object NavigateToLogin : SplashUiState
     data object NavigateToOnboarding : SplashUiState
 }
 
 @HiltViewModel
 class SplashViewModel @Inject constructor(
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<SplashUiState>(SplashUiState.Loading)
@@ -35,6 +38,8 @@ class SplashViewModel @Inject constructor(
             delay(2000)
             if (firebaseAuth.currentUser != null) {
                 _uiState.value = SplashUiState.NavigateToHome
+            } else if (userPreferencesRepository.isOnboardingCompleted()) {
+                _uiState.value = SplashUiState.NavigateToLogin
             } else {
                 _uiState.value = SplashUiState.NavigateToOnboarding
             }

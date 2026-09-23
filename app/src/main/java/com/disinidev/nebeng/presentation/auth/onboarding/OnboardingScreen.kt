@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
+import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 
 private data class OnboardingPageData(
@@ -99,7 +100,8 @@ private val OnboardingPages = listOf(
 fun OnboardingScreen(
     onNavigateToRegister: () -> Unit,
     onNavigateToLogin: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: OnboardingViewModel = hiltViewModel()
 ) {
     val pagerState = rememberPagerState(pageCount = { OnboardingPages.size })
     val coroutineScope = rememberCoroutineScope()
@@ -253,6 +255,7 @@ fun OnboardingScreen(
                                 pagerState.animateScrollToPage(pagerState.currentPage + 1)
                             }
                         } else {
+                            viewModel.completeOnboarding()
                             onNavigateToRegister()
                         }
                     },
@@ -304,7 +307,10 @@ fun OnboardingScreen(
                         modifier = Modifier.clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            onClick = onNavigateToLogin
+                            onClick = {
+                                viewModel.completeOnboarding()
+                                onNavigateToLogin()
+                            }
                         )
                     )
                 }

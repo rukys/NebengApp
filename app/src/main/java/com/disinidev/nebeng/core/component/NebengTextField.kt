@@ -131,7 +131,7 @@ fun NebengTextField(
                             imageVector = leadingIcon,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
-                            tint = if (isFocused) NebengColor.Primary900 else NebengColor.Gray400
+                            tint = if (isFocused) NebengColor.Primary900 else NebengColor.Placeholder
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                     }
@@ -141,7 +141,7 @@ fun NebengTextField(
                             Text(
                                 text = placeholder,
                                 fontSize = 14.sp,
-                                color = NebengColor.Gray400,
+                                color = NebengColor.Placeholder,
                                 fontWeight = FontWeight.Normal
                             )
                         }
@@ -157,7 +157,7 @@ fun NebengTextField(
                                 Icon(
                                     imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                     contentDescription = "Toggle password visibility",
-                                    tint = NebengColor.Gray400,
+                                    tint = if (passwordVisible) NebengColor.Primary900 else NebengColor.Placeholder,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -170,7 +170,7 @@ fun NebengTextField(
                                 Icon(
                                     imageVector = Icons.Default.Clear,
                                     contentDescription = "Clear search",
-                                    tint = NebengColor.Gray400,
+                                    tint = NebengColor.Placeholder,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -183,7 +183,7 @@ fun NebengTextField(
                                 Icon(
                                     imageVector = trailingIcon,
                                     contentDescription = null,
-                                    tint = NebengColor.Gray400,
+                                    tint = NebengColor.Placeholder,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }

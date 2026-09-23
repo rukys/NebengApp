@@ -3,6 +3,8 @@ package com.disinidev.nebeng.presentation.auth.register
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
@@ -23,8 +25,10 @@ data class RegisterUiState(
     val password: String = "",
     val termsAgreed: Boolean = false,
     val isLoading: Boolean = false,
+    val isGoogleLoading: Boolean = false,
     val errorMessage: String? = null,
-    val isSuccess: Boolean = false
+    val isSuccess: Boolean = false,
+    val isGoogleSuccess: Boolean = false
 )
 
 @Serializable
@@ -34,6 +38,16 @@ private data class UserRegisterDto(
     val phone_number: String,
     val email: String,
     val whatsapp_number: String
+)
+
+@Serializable
+private data class GoogleUserRegisterDto(
+    val firebase_uid: String,
+    val full_name: String,
+    val email: String,
+    val phone_number: String? = null,
+    val whatsapp_number: String? = null,
+    val avatar_url: String? = null
 )
 
 @HiltViewModel
@@ -149,6 +163,66 @@ class RegisterViewModel @Inject constructor(
             cleaned.startsWith("62") -> "+$cleaned"
             cleaned.startsWith("0") -> "+62${cleaned.substring(1)}"
             else -> "+62$cleaned"
+        }
+    }
+
+    fun setGoogleLoading(isLoading: Boolean) {
+        _uiState.update { it.copy(isGoogleLoading = isLoading, errorMessage = null) }
+    }
+
+    fun onGoogleSignInError(message: String) {
+        _uiState.update { it.copy(isGoogleLoading = false, errorMessage = message) }
+    }
+
+    fun signInWithGoogle(idToken: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isGoogleLoading = true, errorMessage = null) }
+            try {
+                val credential = GoogleAuthProvider.getCredential(idToken, null)
+                val authResult = firebaseAuth.signInWithCredential(credential).await()
+                val firebaseUser = authResult.user
+                if (firebaseUser != null) {
+                    syncGoogleUser(firebaseUser)
+                }
+                _uiState.update { it.copy(isGoogleLoading = false, isGoogleSuccess = true) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isGoogleLoading = false,
+                        errorMessage = e.localizedMessage ?: "Gagal mendaftar dengan Google"
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun syncGoogleUser(user: FirebaseUser) {
+        try {
+            val existing = supabaseClient.postgrest["users"]
+                .select {
+                    filter { eq("firebase_uid", user.uid) }
+                }
+                .decodeSingleOrNull<GoogleUserRegisterDto>()
+
+            if (existing == null) {
+                val phone = user.phoneNumber?.ifBlank { null }
+                supabaseClient.postgrest["users"].insert(
+                    GoogleUserRegisterDto(
+                        firebase_uid = user.uid,
+                        full_name = user.displayName?.ifBlank { null } ?: "Pengguna Google",
+                        email = user.email ?: "",
+                        phone_number = phone,
+                        whatsapp_number = null,
+                        avatar_url = user.photoUrl?.toString()
+                    )
+                )
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.e("RegisterViewModel", "Supabase sync error: ${e.message}", e)
         }
     }
 }

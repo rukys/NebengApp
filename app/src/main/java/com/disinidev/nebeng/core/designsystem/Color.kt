@@ -36,6 +36,7 @@ object NebengColor {
     val DarkSurface = Color(0xFF121212)
     val PressedBlack = Color(0xFF333333)
     val DisabledGray = Color(0xFFA0A0A0)
+    val Placeholder = Color(0xFFA0A0A0)
 }
 
 @Immutable

@@ -11,10 +11,14 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.PersonOutline
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,11 +31,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.disinidev.nebeng.core.designsystem.NebengColor
 
-enum class NebengTab(val label: String, val icon: ImageVector) {
-    BERANDA("Beranda", Icons.Default.Home),
-    AKTIVITAS("Aktivitas", Icons.Default.DirectionsCar),
-    PESAN("Pesan", Icons.Default.ChatBubbleOutline),
-    AKUN("Akun", Icons.Default.PersonOutline)
+enum class NebengTab(
+    val label: String,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector
+) {
+    BERANDA("Beranda", Icons.Filled.Home, Icons.Outlined.Home),
+    AKTIVITAS("Aktivitas", Icons.Filled.DirectionsCar, Icons.Outlined.DirectionsCar),
+    PESAN("Pesan", Icons.Filled.ChatBubble, Icons.Outlined.ChatBubbleOutline),
+    AKUN("Akun", Icons.Filled.Person, Icons.Outlined.PersonOutline);
+
+    val icon: ImageVector get() = selectedIcon
 }
 
 @Composable
@@ -56,6 +66,7 @@ fun NebengBottomNav(
             NebengTab.entries.forEach { tab ->
                 val isSelected = tab == selectedTab
                 val tint = if (isSelected) NebengColor.Primary900 else NebengColor.Gray400
+                val icon = if (isSelected) tab.selectedIcon else tab.unselectedIcon
 
                 Column(
                     modifier = Modifier
@@ -67,7 +78,7 @@ fun NebengBottomNav(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Icon(
-                        imageVector = tab.icon,
+                        imageVector = icon,
                         contentDescription = tab.label,
                         tint = tint,
                         modifier = Modifier.size(22.dp)

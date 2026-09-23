@@ -3,6 +3,8 @@ package com.disinidev.nebeng.di
 import android.content.Context
 import com.disinidev.nebeng.core.location.DefaultLocationClient
 import com.disinidev.nebeng.core.location.LocationClient
+import com.disinidev.nebeng.data.repository.OsmLocationSearchRepository
+import com.disinidev.nebeng.domain.repository.LocationSearchRepository
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import dagger.Binds
@@ -22,6 +24,12 @@ abstract class LocationModule {
     abstract fun bindLocationClient(
         defaultLocationClient: DefaultLocationClient
     ): LocationClient
+
+    @Binds
+    @Singleton
+    abstract fun bindLocationSearchRepository(
+        osmLocationSearchRepository: OsmLocationSearchRepository
+    ): LocationSearchRepository
 
     companion object {
         @Provides

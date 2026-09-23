@@ -48,8 +48,10 @@ class RegisterViewModelTest {
         assertEquals("", state.password)
         assertFalse(state.termsAgreed)
         assertFalse(state.isLoading)
+        assertFalse(state.isGoogleLoading)
         assertNull(state.errorMessage)
         assertFalse(state.isSuccess)
+        assertFalse(state.isGoogleSuccess)
     }
 
     @Test

@@ -32,6 +32,7 @@ import com.disinidev.nebeng.core.designsystem.NebengColor
 @Composable
 fun SplashScreen(
     onNavigateToHome: () -> Unit,
+    onNavigateToLogin: () -> Unit,
     onNavigateToOnboarding: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SplashViewModel = hiltViewModel()
@@ -41,6 +42,7 @@ fun SplashScreen(
     LaunchedEffect(uiState) {
         when (uiState) {
             SplashUiState.NavigateToHome -> onNavigateToHome()
+            SplashUiState.NavigateToLogin -> onNavigateToLogin()
             SplashUiState.NavigateToOnboarding -> onNavigateToOnboarding()
             SplashUiState.Loading -> Unit
         }

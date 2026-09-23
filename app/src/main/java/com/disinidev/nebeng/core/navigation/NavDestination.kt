@@ -41,7 +41,20 @@ sealed interface NavDestination {
     data object Messages : NavDestination
 
     @Serializable
+    data class ChatDetail(
+        val driverName: String = "Andi Pratama",
+        val vehicleInfo: String = "Avanza Silver",
+        val pin: String = "489 201"
+    ) : NavDestination
+
+    @Serializable
     data object Profile : NavDestination
+
+    @Serializable
+    data object Settings : NavDestination
+
+    @Serializable
+    data object EditProfile : NavDestination
 
     @Serializable
     data object Notifications : NavDestination
@@ -54,14 +67,20 @@ sealed interface NavDestination {
     data class SearchResults(
         val pickupAddress: String,
         val dropoffAddress: String,
-        val vehicleType: String
+        val vehicleType: String,
+        val pickupLat: Double = -6.2297,
+        val pickupLng: Double = 106.8580,
+        val departureTime: String = "Hari Ini, 07:30"
     ) : NavDestination
 
     @Serializable
     data class RideDetail(val rideId: String) : NavDestination
 
     @Serializable
-    data class Checkout(val rideId: String, val seatPosition: String) : NavDestination
+    data class CheckoutCar(val rideId: String) : NavDestination
+
+    @Serializable
+    data class CheckoutMotor(val rideId: String) : NavDestination
 
     @Serializable
     data class Payment(val bookingId: String, val amount: Int) : NavDestination

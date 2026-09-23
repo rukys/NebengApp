@@ -1,5 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Nebeng" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Nebeng" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">#000000</item>
+        <item name="android:colorPrimary">#000000</item>
+        <item name="android:timePickerDialogTheme">@style/NebengTimePickerDialogTheme</item>
+        <item name="android:statusBarColor">@android:color/black</item>
+        <item name="android:navigationBarColor">@android:color/black</item>
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+
+    <style name="NebengTimePickerDialogTheme" parent="android:Theme.Material.Light.Dialog">
+        <item name="android:colorAccent">#000000</item>
+        <item name="android:colorPrimary">#000000</item>
+        <item name="android:buttonBarPositiveButtonStyle">@style/NebengDialogButton</item>
+        <item name="android:buttonBarNegativeButtonStyle">@style/NebengDialogButton</item>
+    </style>
+
+    <style name="NebengDialogButton" parent="android:Widget.Material.Light.Button.Borderless">
+        <item name="android:textColor">#000000</item>
+    </style>
 </resources>

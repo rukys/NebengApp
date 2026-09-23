@@ -1,5 +1,7 @@
 package com.disinidev.nebeng.presentation.auth.login
 
+import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,34 +23,41 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.disinidev.nebeng.core.auth.GoogleSignInHelper
 import com.disinidev.nebeng.core.component.NebengButton
 import com.disinidev.nebeng.core.component.NebengButtonStyle
 import com.disinidev.nebeng.core.component.NebengTextField
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
 import com.disinidev.nebeng.core.designsystem.NebengSpacing
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -58,11 +67,17 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
             onNavigateToHome()
         }
+    }
+
+    BackHandler {
+        (context as? Activity)?.finish()
     }
 
     Column(
@@ -126,7 +141,7 @@ fun LoginScreen(
                 value = uiState.identifier,
                 onValueChange = viewModel::onIdentifierChange,
                 label = "Email atau Nomor Ponsel",
-                placeholder = "nama@email.com / 0812...",
+                placeholder = "Masukkan email atau nomor ponsel",
                 leadingIcon = Icons.Default.MailOutline
             )
 
@@ -137,7 +152,7 @@ fun LoginScreen(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChange,
                 label = "Kata Sandi",
-                placeholder = "••••••••••••",
+                placeholder = "Masukkan kata sandi",
                 leadingIcon = Icons.Default.Lock,
                 isPassword = true
             )
@@ -174,8 +189,9 @@ fun LoginScreen(
             // CTA Primary Button
             NebengButton(
                 text = "Lanjutkan",
-                trailingText = "→",
+                trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
                 onClick = viewModel::login,
+                enabled = !uiState.isLoading && !uiState.isGoogleLoading,
                 isLoading = uiState.isLoading,
                 style = NebengButtonStyle.PRIMARY
             )
@@ -201,7 +217,24 @@ fun LoginScreen(
 
             // Google Sign In Button
             Button(
-                onClick = { /* Google Sign In */ },
+                onClick = {
+                    coroutineScope.launch {
+                        try {
+                            viewModel.setGoogleLoading(true)
+                            val idToken = GoogleSignInHelper.getGoogleIdToken(context)
+                            if (idToken != null) {
+                                viewModel.signInWithGoogle(idToken)
+                            } else {
+                                viewModel.onGoogleSignInError("Gagal mendapatkan token Google")
+                            }
+                        } catch (_: GetCredentialCancellationException) {
+                            viewModel.setGoogleLoading(false)
+                        } catch (e: Exception) {
+                            viewModel.onGoogleSignInError(e.localizedMessage ?: "Gagal terhubung dengan akun Google")
+                        }
+                    }
+                },
+                enabled = !uiState.isLoading && !uiState.isGoogleLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
@@ -213,20 +246,37 @@ fun LoginScreen(
                 ),
                 elevation = null
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "G",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = NebengColor.Primary900
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Lanjutkan dengan Google",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = NebengColor.Primary900
-                    )
+                if (uiState.isGoogleLoading) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = NebengColor.Primary900,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Menghubungkan...",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NebengColor.Primary900
+                        )
+                    }
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "G",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NebengColor.Primary900
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Lanjutkan dengan Google",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NebengColor.Primary900
+                        )
+                    }
                 }
             }
         }

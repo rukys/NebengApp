@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.disinidev.nebeng.core.designsystem.NebengColor
@@ -44,8 +45,7 @@ fun RideCard(
     pickupTime: String,
     dropoffLocation: String,
     dropoffTime: String,
-    priceFormatted: String = "Rp 20.000",
-    priceUnit: String = "/kursi",
+    notes: String? = null,
     initials: String? = null,
     onBookClick: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
@@ -192,29 +192,22 @@ fun RideCard(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // --- Bottom Row: Price + Book Button ---
+        // --- Bottom Row: Notes/Tag + Book Button ---
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = priceFormatted,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NebengColor.Primary900
-                )
-                if (priceUnit.isNotBlank()) {
-                    Text(
-                        text = " $priceUnit",
-                        fontSize = 12.sp,
-                        color = NebengColor.Gray600,
-                        modifier = Modifier.padding(bottom = 2.dp)
-                    )
-                }
-            }
+            Text(
+                text = notes ?: "Komunitas Nebeng",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = NebengColor.Gray600,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.width(12.dp))
 
             Box(
                 modifier = Modifier
@@ -244,7 +237,6 @@ private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId
 fun RideCard(
     ride: Ride,
     modifier: Modifier = Modifier,
-    priceFormatted: String = "Rp 20.000",
     onBookClick: ((Ride) -> Unit)? = null,
     onClick: ((Ride) -> Unit)? = null
 ) {
@@ -265,7 +257,7 @@ fun RideCard(
         pickupTime = departureTimeFormatted,
         dropoffLocation = ride.dropoffAddress,
         dropoffTime = arrivalTimeFormatted,
-        priceFormatted = priceFormatted,
+        notes = ride.notes,
         initials = null,
         onBookClick = onBookClick?.let { { it(ride) } },
         onClick = onClick?.let { { it(ride) } },

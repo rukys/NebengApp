@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -22,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -129,12 +133,19 @@ fun NebengButton(
                 Text(
                     text = text,
                     fontSize = size.fontSize.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    style = TextStyle(
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    )
                 )
-                if (trailingIcon != null) {
-                    Spacer(modifier = Modifier.width(6.dp))
+                val resolvedTrailingIcon = trailingIcon ?: if (trailingText == "→" || trailingText == "->") {
+                    Icons.AutoMirrored.Filled.ArrowForward
+                } else null
+
+                if (resolvedTrailingIcon != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
                     Icon(
-                        imageVector = trailingIcon,
+                        imageVector = resolvedTrailingIcon,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -143,7 +154,10 @@ fun NebengButton(
                     Text(
                         text = trailingText,
                         fontSize = size.fontSize.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        style = TextStyle(
+                            platformStyle = PlatformTextStyle(includeFontPadding = false)
+                        )
                     )
                 }
             }
