@@ -47,7 +47,9 @@ class TripLocationRepositoryImpl @Inject constructor(
             )
 
             runCatching {
-                supabaseClient.from("trip_locations").upsert(dto)
+                supabaseClient.from("trip_locations").upsert(dto) {
+                    onConflict = "booking_id"
+                }
             }
             Unit
         }

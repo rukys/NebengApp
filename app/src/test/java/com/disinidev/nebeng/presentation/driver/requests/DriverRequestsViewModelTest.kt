@@ -1,5 +1,6 @@
 package com.disinidev.nebeng.presentation.driver.requests
 
+import com.disinidev.nebeng.core.location.LocationClient
 import com.disinidev.nebeng.domain.repository.BookingRepository
 import com.disinidev.nebeng.domain.repository.DriverBookingRequest
 import com.disinidev.nebeng.domain.usecase.UpdateDriverLocationUseCase
@@ -29,6 +30,7 @@ class DriverRequestsViewModelTest {
     private val updateDriverLocationUseCase = mockk<UpdateDriverLocationUseCase>()
     private val firebaseAuth = mockk<FirebaseAuth>()
     private val firebaseUser = mockk<FirebaseUser>()
+    private val locationClient = mockk<LocationClient>(relaxed = true)
 
     private val sampleRequest = DriverBookingRequest(
         bookingId = "req-1",
@@ -52,7 +54,7 @@ class DriverRequestsViewModelTest {
 
     @Test
     fun `loadRequests populates requests list`() = runTest {
-        val viewModel = DriverRequestsViewModel(bookingRepository, updateDriverLocationUseCase, firebaseAuth)
+        val viewModel = DriverRequestsViewModel(bookingRepository, updateDriverLocationUseCase, firebaseAuth, locationClient)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -63,7 +65,7 @@ class DriverRequestsViewModelTest {
 
     @Test
     fun `acceptRequest calls repository and initializes driver location`() = runTest {
-        val viewModel = DriverRequestsViewModel(bookingRepository, updateDriverLocationUseCase, firebaseAuth)
+        val viewModel = DriverRequestsViewModel(bookingRepository, updateDriverLocationUseCase, firebaseAuth, locationClient)
         advanceUntilIdle()
 
         viewModel.acceptRequest("req-1")
@@ -77,7 +79,7 @@ class DriverRequestsViewModelTest {
 
     @Test
     fun `rejectRequest calls repository with accept false`() = runTest {
-        val viewModel = DriverRequestsViewModel(bookingRepository, updateDriverLocationUseCase, firebaseAuth)
+        val viewModel = DriverRequestsViewModel(bookingRepository, updateDriverLocationUseCase, firebaseAuth, locationClient)
         advanceUntilIdle()
 
         viewModel.rejectRequest("req-1")

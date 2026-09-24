@@ -52,6 +52,7 @@ import com.disinidev.nebeng.core.component.ServiceType
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
 import com.disinidev.nebeng.core.designsystem.NebengSpacing
+import com.disinidev.nebeng.domain.model.VehicleType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -188,7 +189,7 @@ fun HomeScreen(
                 } else {
                     items(state.popularRides, key = { it.id }) { ride ->
                         val onBook = {
-                            if (ride.vehicleInfo.type == com.disinidev.nebeng.domain.model.VehicleType.MOTORCYCLE) {
+                            if (ride.vehicleInfo.type == VehicleType.MOTORCYCLE) {
                                 onNavigateToCheckoutMotor(ride.id)
                             } else {
                                 onNavigateToCheckoutCar(ride.id)

@@ -50,6 +50,7 @@ import com.disinidev.nebeng.core.component.NebengButtonStyle
 import com.disinidev.nebeng.core.component.NebengTab
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
+import com.disinidev.nebeng.presentation.driver.requests.DriverRequestsBottomSheet
 
 @Composable
 fun ActivityScreen(
@@ -224,7 +225,7 @@ fun ActivityScreen(
     }
 
     if (isRequestsSheetOpen) {
-        com.disinidev.nebeng.presentation.driver.requests.DriverRequestsBottomSheet(
+        DriverRequestsBottomSheet(
             onDismiss = { isRequestsSheetOpen = false }
         )
     }

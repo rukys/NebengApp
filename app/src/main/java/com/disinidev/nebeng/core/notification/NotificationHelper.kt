@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -56,12 +57,17 @@ object NotificationHelper {
         title: String,
         body: String,
         channelId: String = CHANNEL_TRIP,
+        actionUrl: String? = null,
         notificationId: Int = System.currentTimeMillis().toInt()
     ) {
         createNotificationChannels(context)
 
         val intent = Intent(context, MainActivity::class.java).apply {
+            action = Intent.ACTION_VIEW
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (!actionUrl.isNullOrBlank()) {
+                data = Uri.parse(actionUrl)
+            }
         }
         val pendingIntent = PendingIntent.getActivity(
             context,

@@ -9,7 +9,9 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 import com.disinidev.nebeng.data.repository.TripLocationRepositoryImpl
+import com.disinidev.nebeng.data.repository.UserRepositoryImpl
 import com.disinidev.nebeng.domain.repository.TripLocationRepository
+import com.disinidev.nebeng.domain.repository.UserRepository
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -26,4 +28,11 @@ abstract class BookingModule {
     abstract fun bindTripLocationRepository(
         impl: TripLocationRepositoryImpl
     ): TripLocationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindUserRepository(
+        impl: UserRepositoryImpl
+    ): UserRepository
 }
+

@@ -2,10 +2,8 @@ package com.disinidev.nebeng.domain.usecase
 
 import com.disinidev.nebeng.domain.repository.BookingRepository
 import com.disinidev.nebeng.domain.repository.BookingResult
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
+import com.disinidev.nebeng.domain.repository.UserRepository
 import io.mockk.coEvery
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -16,15 +14,13 @@ import org.junit.Test
 class CreateBookingUseCaseTest {
 
     private val bookingRepository = mockk<BookingRepository>()
-    private val firebaseAuth = mockk<FirebaseAuth>()
-    private val firebaseUser = mockk<FirebaseUser>()
+    private val userRepository = mockk<UserRepository>()
     private lateinit var useCase: CreateBookingUseCase
 
     @Before
     fun setUp() {
-        every { firebaseAuth.currentUser } returns firebaseUser
-        every { firebaseUser.uid } returns "user-123"
-        useCase = CreateBookingUseCase(bookingRepository, firebaseAuth)
+        coEvery { userRepository.getCurrentUserUuid() } returns "user-123"
+        useCase = CreateBookingUseCase(bookingRepository, userRepository)
     }
 
     @Test

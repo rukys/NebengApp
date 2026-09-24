@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -65,46 +66,57 @@ fun LiveTrackingMapOverlay(
     state: LiveTrackingUiState,
     onRecenterClick: () -> Unit,
     onGpsBadgeClick: () -> Unit = {},
+    projectedPoints: ProjectedTrackingPoints? = null,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val widthPx = constraints.maxWidth.toFloat()
         val heightPx = constraints.maxHeight.toFloat()
 
-        // Anchor points on screen (relative to viewport)
-        // Destination: SCBD Lot 8 (Top)
-        val destX = widthPx * 0.50f
-        val destY = heightPx * 0.32f
+        // Real geographical anchor points projected from MapLibre camera
+        val destX = projectedPoints?.destX ?: (widthPx * 0.50f)
+        val destY = projectedPoints?.destY ?: (heightPx * 0.32f)
 
-        // Pickup point: Pintu Barat Lawson (Bottom)
-        val pickupX = widthPx * 0.50f
-        val pickupY = heightPx * 0.54f
+        val pickupX = projectedPoints?.pickupX ?: (widthPx * 0.50f)
+        val pickupY = projectedPoints?.pickupY ?: (heightPx * 0.54f)
 
-        // Driver Start point (Middle)
-        val startDriverX = widthPx * 0.50f
-        val startDriverY = heightPx * 0.43f
+        // Real driver position from map projection, or smooth fallback
+        val currentDriverX = projectedPoints?.driverX ?: run {
+            val startDriverX = widthPx * 0.50f
+            startDriverX + (pickupX - startDriverX) * state.progress
+        }
+        val currentDriverY = projectedPoints?.driverY ?: run {
+            val startDriverY = heightPx * 0.43f
+            startDriverY + (pickupY - startDriverY) * state.progress
+        }
 
-        // Smoothly animated progress for 60fps butter-smooth vehicle movement
-        val smoothProgress by animateFloatAsState(
-            targetValue = state.progress,
-            animationSpec = tween(durationMillis = 1800, easing = LinearOutSlowInEasing),
-            label = "driverProgress"
+        // Animated Pulse for User / Device Location
+        val userPulseTransition = rememberInfiniteTransition(label = "userRadarPulse")
+        val userPulseProgress by userPulseTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1500, easing = LinearOutSlowInEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "userPulseProgress"
         )
-
-        // Interpolated driver position
-        val currentDriverX = startDriverX + (pickupX - startDriverX) * smoothProgress
-        val currentDriverY = startDriverY + (pickupY - startDriverY) * smoothProgress
 
         // 1. Vector Polyline Route Path Canvas
         Canvas(modifier = Modifier.fillMaxSize()) {
-            // Draw Upcoming Leg (Pickup -> Destination) as clean dashed route line
+            // Draw Upcoming Leg (Pickup -> Destination) as clean dashed route line along actual roads
             val destPath = Path().apply {
-                moveTo(pickupX, pickupY)
-                cubicTo(
-                    pickupX + 30f, (pickupY + destY) / 2f,
-                    destX - 30f, (pickupY + destY) / 2f,
-                    destX, destY
-                )
+                if (projectedPoints != null && projectedPoints.destRoutePoints.isNotEmpty()) {
+                    val pts = projectedPoints.destRoutePoints
+                    moveTo(pickupX, pickupY)
+                    for (pt in pts) {
+                        lineTo(pt.x, pt.y)
+                    }
+                    lineTo(destX, destY)
+                } else {
+                    moveTo(pickupX, pickupY)
+                    lineTo(destX, destY)
+                }
             }
 
             // Outline Casing for upcoming route
@@ -128,10 +140,19 @@ fun LiveTrackingMapOverlay(
                 )
             )
 
-            // Draw Active Approach Leg (Driver Current Position -> Pickup)
+            // Draw Active Approach Leg (Driver Current Position -> Pickup) along actual roads
             val approachPath = Path().apply {
-                moveTo(currentDriverX, currentDriverY)
-                lineTo(pickupX, pickupY)
+                if (projectedPoints != null && projectedPoints.approachRoutePoints.isNotEmpty()) {
+                    val pts = projectedPoints.approachRoutePoints
+                    moveTo(currentDriverX, currentDriverY)
+                    for (pt in pts) {
+                        lineTo(pt.x, pt.y)
+                    }
+                    lineTo(pickupX, pickupY)
+                } else {
+                    moveTo(currentDriverX, currentDriverY)
+                    lineTo(pickupX, pickupY)
+                }
             }
 
             // Outer dark route casing
@@ -166,15 +187,27 @@ fun LiveTrackingMapOverlay(
                 center = Offset(destX, destY)
             )
 
-            // Ground Anchor Dot for Pickup
+            // Ground Anchor Dot for Pickup (Titik Jemput Saya / User Location)
+            val userPulseRadius = 8.dp.toPx() + (22.dp.toPx() * userPulseProgress)
+            val userPulseAlpha = ((1f - userPulseProgress) * 0.45f).coerceIn(0f, 0.45f)
+            drawCircle(
+                color = NebengColor.Primary900.copy(alpha = userPulseAlpha),
+                radius = userPulseRadius,
+                center = Offset(pickupX, pickupY)
+            )
             drawCircle(
                 color = NebengColor.Primary900,
-                radius = 6.dp.toPx(),
+                radius = 8.dp.toPx(),
                 center = Offset(pickupX, pickupY)
             )
             drawCircle(
                 color = NebengColor.Primary0,
-                radius = 2.5.dp.toPx(),
+                radius = 4.dp.toPx(),
+                center = Offset(pickupX, pickupY)
+            )
+            drawCircle(
+                color = NebengColor.Primary900,
+                radius = 2.dp.toPx(),
                 center = Offset(pickupX, pickupY)
             )
         }
@@ -196,21 +229,18 @@ fun LiveTrackingMapOverlay(
             )
         }
 
-        // 3. Pointing Marker: Pickup Location (Pintu Barat Lawson)
+        // 3. Pointing Marker: User Location (Titik Jemput)
         Box(
             modifier = Modifier
                 .offset {
                     IntOffset(
-                        x = (pickupX - 105.dp.toPx()).roundToInt(),
-                        y = (pickupY - 44.dp.toPx()).roundToInt()
+                        x = (pickupX - 48.dp.toPx()).roundToInt(),
+                        y = (pickupY - 36.dp.toPx()).roundToInt()
                     )
                 }
         ) {
-            PointingPill(
-                text = state.pickupLocation,
-                icon = Icons.Default.Place,
-                isDark = true,
-                isCircleDot = true
+            UserLocationMarker(
+                label = "Titik Jemput"
             )
         }
 
@@ -310,7 +340,7 @@ fun LiveTrackingMapOverlay(
 @Composable
 private fun PointingPill(
     text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     isDark: Boolean = true,
     isCircleDot: Boolean = false
 ) {
@@ -548,6 +578,53 @@ private fun DriverPointingMarker(
                 radius = 2.dp.toPx(),
                 center = center
             )
+        }
+    }
+}
+
+@Composable
+private fun UserLocationMarker(
+    label: String = "Titik Jemput"
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .shadow(4.dp, RoundedCornerShape(NebengRadius.Full))
+                .clip(RoundedCornerShape(NebengRadius.Full))
+                .background(NebengColor.Primary900)
+                .padding(horizontal = 9.dp, vertical = 4.5.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(NebengColor.Primary0)
+                )
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NebengColor.Primary0,
+                    style = TextStyle(
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    )
+                )
+            }
+        }
+        Canvas(modifier = Modifier.size(width = 8.dp, height = 5.dp)) {
+            val trianglePath = Path().apply {
+                moveTo(0f, 0f)
+                lineTo(size.width, 0f)
+                lineTo(size.width / 2f, size.height)
+                close()
+            }
+            drawPath(path = trianglePath, color = NebengColor.Primary900)
         }
     }
 }

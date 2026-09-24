@@ -1,5 +1,6 @@
 package com.disinidev.nebeng.presentation.auth.setup
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -105,7 +106,7 @@ class SetupProfileViewModel @Inject constructor(
                             onConflict = "firebase_uid"
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("SetupProfile", "Supabase upsert error: ${e.message}", e)
+                        Log.e("SetupProfile", "Supabase upsert error: ${e.message}", e)
                     }
                 }
 

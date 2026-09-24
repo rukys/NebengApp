@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -44,13 +45,28 @@ class DefaultLocationClient @Inject constructor(
         if (!hasLocationPermission()) return@withContext null
 
         try {
-            val location = fusedLocationProviderClient.getCurrentLocation(
-                Priority.PRIORITY_HIGH_ACCURACY,
-                null
-            ).await() ?: fusedLocationProviderClient.lastLocation.await()
+            // Fast path: get last known location immediately
+            var location = runCatching { fusedLocationProviderClient.lastLocation.await() }.getOrNull()
+
+            // If no cached location, query fresh location with a 2-second timeout
+            if (location == null) {
+                location = runCatching {
+                    withTimeoutOrNull(2000L) {
+                        fusedLocationProviderClient.getCurrentLocation(
+                            Priority.PRIORITY_HIGH_ACCURACY,
+                            null
+                        ).await()
+                    }
+                }.getOrNull()
+            }
 
             if (location != null) {
-                val addressName = getAddressFromCoordinates(location.latitude, location.longitude)
+                val addressName = runCatching {
+                    withTimeoutOrNull(1500L) {
+                        getAddressFromCoordinates(location.latitude, location.longitude)
+                    }
+                }.getOrNull()
+
                 UserLocation(
                     latitude = location.latitude,
                     longitude = location.longitude,

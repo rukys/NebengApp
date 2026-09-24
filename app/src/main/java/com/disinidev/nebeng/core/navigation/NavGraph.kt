@@ -6,18 +6,37 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
-import com.disinidev.nebeng.core.designsystem.NebengColor
+import com.disinidev.nebeng.core.component.NebengTab
+import com.disinidev.nebeng.presentation.activity.ActivityScreen
+import com.disinidev.nebeng.presentation.auth.login.LoginScreen
+import com.disinidev.nebeng.presentation.auth.onboarding.OnboardingScreen
+import com.disinidev.nebeng.presentation.auth.otp.OtpScreen
+import com.disinidev.nebeng.presentation.auth.register.RegisterScreen
+import com.disinidev.nebeng.presentation.auth.setup.SetupProfileScreen
+import com.disinidev.nebeng.presentation.auth.splash.SplashScreen
+import com.disinidev.nebeng.presentation.chat.ChatScreen
+import com.disinidev.nebeng.presentation.chat.ConversationsScreen
+import com.disinidev.nebeng.presentation.checkout.CheckoutCarScreen
+import com.disinidev.nebeng.presentation.checkout.CheckoutMotorScreen
+import com.disinidev.nebeng.presentation.driver.offer.OfferRideScreen
+import com.disinidev.nebeng.presentation.home.HomeScreen
+import com.disinidev.nebeng.presentation.notification.NotificationScreen
+import com.disinidev.nebeng.presentation.profile.ProfileScreen
+import com.disinidev.nebeng.presentation.profile.edit.EditProfileScreen
+import com.disinidev.nebeng.presentation.search.form.SearchFormScreen
+import com.disinidev.nebeng.presentation.search.results.SearchResultsScreen
+import com.disinidev.nebeng.presentation.settings.SettingsScreen
+import com.disinidev.nebeng.presentation.settings.password.ChangePasswordScreen
+import com.disinidev.nebeng.presentation.tracking.LiveTrackingScreen
+import com.disinidev.nebeng.presentation.tripdone.TripDoneScreen
 
 @Composable
 fun NebengNavGraph(
@@ -58,7 +77,7 @@ fun NebengNavGraph(
         composable<NavDestination.Splash>(
             exitTransition = { fadeOut(animationSpec = tween(300)) }
         ) {
-            com.disinidev.nebeng.presentation.auth.splash.SplashScreen(
+            SplashScreen(
                 onNavigateToHome = {
                     navController.navigate(NavDestination.Home) {
                         popUpTo(NavDestination.Splash) { inclusive = true }
@@ -78,7 +97,7 @@ fun NebengNavGraph(
         }
 
         composable<NavDestination.Onboarding> {
-            com.disinidev.nebeng.presentation.auth.onboarding.OnboardingScreen(
+            OnboardingScreen(
                 onNavigateToRegister = {
                     navController.navigate(NavDestination.Register) {
                         popUpTo(NavDestination.Onboarding) { inclusive = true }
@@ -93,7 +112,7 @@ fun NebengNavGraph(
         }
 
         composable<NavDestination.Login> {
-            com.disinidev.nebeng.presentation.auth.login.LoginScreen(
+            LoginScreen(
                 onNavigateToRegister = {
                     navController.navigate(NavDestination.Register) {
                         popUpTo(NavDestination.Login) { inclusive = true }
@@ -109,7 +128,7 @@ fun NebengNavGraph(
         }
 
         composable<NavDestination.Register> {
-            com.disinidev.nebeng.presentation.auth.register.RegisterScreen(
+            RegisterScreen(
                 onNavigateToOtp = { phone, name, email ->
                     navController.navigate(
                         NavDestination.Otp(
@@ -135,7 +154,7 @@ fun NebengNavGraph(
 
         composable<NavDestination.Otp> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.Otp>()
-            com.disinidev.nebeng.presentation.auth.otp.OtpScreen(
+            OtpScreen(
                 phoneNumber = route.phoneNumber,
                 onNavigateBack = {
                     navController.popBackStack()
@@ -156,7 +175,7 @@ fun NebengNavGraph(
 
         composable<NavDestination.SetupProfile> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.SetupProfile>()
-            com.disinidev.nebeng.presentation.auth.setup.SetupProfileScreen(
+            SetupProfileScreen(
                 phoneNumber = route.phoneNumber,
                 onNavigateBack = {
                     navController.popBackStack()
@@ -176,7 +195,7 @@ fun NebengNavGraph(
             popEnterTransition = { fadeIn(animationSpec = tween(150)) },
             popExitTransition = { fadeOut(animationSpec = tween(150)) }
         ) {
-            com.disinidev.nebeng.presentation.home.HomeScreen(
+            HomeScreen(
                 onNavigateToNotifications = {
                     navController.navigate(NavDestination.Notifications)
                 },
@@ -203,10 +222,10 @@ fun NebengNavGraph(
                 },
                 onTabSelected = { tab ->
                     when (tab) {
-                        com.disinidev.nebeng.core.component.NebengTab.BERANDA -> { /* already on home */ }
-                        com.disinidev.nebeng.core.component.NebengTab.AKTIVITAS -> navController.navigate(NavDestination.Activity)
-                        com.disinidev.nebeng.core.component.NebengTab.PESAN -> navController.navigate(NavDestination.Messages)
-                        com.disinidev.nebeng.core.component.NebengTab.AKUN -> navController.navigate(NavDestination.Profile)
+                        NebengTab.BERANDA -> { /* already on home */ }
+                        NebengTab.AKTIVITAS -> navController.navigate(NavDestination.Activity)
+                        NebengTab.PESAN -> navController.navigate(NavDestination.Messages)
+                        NebengTab.AKUN -> navController.navigate(NavDestination.Profile)
                     }
                 }
             )
@@ -216,15 +235,16 @@ fun NebengNavGraph(
             enterTransition = { fadeIn(animationSpec = tween(150)) },
             exitTransition = { fadeOut(animationSpec = tween(150)) },
             popEnterTransition = { fadeIn(animationSpec = tween(150)) },
-            popExitTransition = { fadeOut(animationSpec = tween(150)) }
+            popExitTransition = { fadeOut(animationSpec = tween(150)) },
+            deepLinks = listOf(navDeepLink { uriPattern = "nebeng://activity" })
         ) {
-            com.disinidev.nebeng.presentation.activity.ActivityScreen(
+            ActivityScreen(
                 onTabSelected = { tab ->
                     when (tab) {
-                        com.disinidev.nebeng.core.component.NebengTab.BERANDA -> navController.navigate(NavDestination.Home)
-                        com.disinidev.nebeng.core.component.NebengTab.AKTIVITAS -> { /* already on activity */ }
-                        com.disinidev.nebeng.core.component.NebengTab.PESAN -> navController.navigate(NavDestination.Messages)
-                        com.disinidev.nebeng.core.component.NebengTab.AKUN -> navController.navigate(NavDestination.Profile)
+                        NebengTab.BERANDA -> navController.navigate(NavDestination.Home)
+                        NebengTab.AKTIVITAS -> { /* already on activity */ }
+                        NebengTab.PESAN -> navController.navigate(NavDestination.Messages)
+                        NebengTab.AKUN -> navController.navigate(NavDestination.Profile)
                     }
                 },
                 onNavigateToLiveTracking = { bookingId ->
@@ -240,15 +260,16 @@ fun NebengNavGraph(
             enterTransition = { fadeIn(animationSpec = tween(150)) },
             exitTransition = { fadeOut(animationSpec = tween(150)) },
             popEnterTransition = { fadeIn(animationSpec = tween(150)) },
-            popExitTransition = { fadeOut(animationSpec = tween(150)) }
+            popExitTransition = { fadeOut(animationSpec = tween(150)) },
+            deepLinks = listOf(navDeepLink { uriPattern = "nebeng://messages" })
         ) {
-            com.disinidev.nebeng.presentation.chat.ConversationsScreen(
+            ConversationsScreen(
                 onTabSelected = { tab ->
                     when (tab) {
-                        com.disinidev.nebeng.core.component.NebengTab.BERANDA -> navController.navigate(NavDestination.Home)
-                        com.disinidev.nebeng.core.component.NebengTab.AKTIVITAS -> navController.navigate(NavDestination.Activity)
-                        com.disinidev.nebeng.core.component.NebengTab.PESAN -> { /* already on messages */ }
-                        com.disinidev.nebeng.core.component.NebengTab.AKUN -> navController.navigate(NavDestination.Profile)
+                        NebengTab.BERANDA -> navController.navigate(NavDestination.Home)
+                        NebengTab.AKTIVITAS -> navController.navigate(NavDestination.Activity)
+                        NebengTab.PESAN -> { /* already on messages */ }
+                        NebengTab.AKUN -> navController.navigate(NavDestination.Profile)
                     }
                 },
                 onNavigateToChat = { driverName, vehicleInfo, pin ->
@@ -264,7 +285,7 @@ fun NebengNavGraph(
         }
 
         composable<NavDestination.ChatDetail> { backStackEntry ->
-            com.disinidev.nebeng.presentation.chat.ChatScreen(
+            ChatScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }
@@ -277,7 +298,7 @@ fun NebengNavGraph(
             popEnterTransition = { fadeIn(animationSpec = tween(150)) },
             popExitTransition = { fadeOut(animationSpec = tween(150)) }
         ) {
-            com.disinidev.nebeng.presentation.profile.ProfileScreen(
+            ProfileScreen(
                 onNavigateToSettings = {
                     navController.navigate(NavDestination.Settings)
                 },
@@ -286,17 +307,17 @@ fun NebengNavGraph(
                 },
                 onTabSelected = { tab ->
                     when (tab) {
-                        com.disinidev.nebeng.core.component.NebengTab.BERANDA -> navController.navigate(NavDestination.Home)
-                        com.disinidev.nebeng.core.component.NebengTab.AKTIVITAS -> navController.navigate(NavDestination.Activity)
-                        com.disinidev.nebeng.core.component.NebengTab.PESAN -> navController.navigate(NavDestination.Messages)
-                        com.disinidev.nebeng.core.component.NebengTab.AKUN -> { /* already on profile */ }
+                        NebengTab.BERANDA -> navController.navigate(NavDestination.Home)
+                        NebengTab.AKTIVITAS -> navController.navigate(NavDestination.Activity)
+                        NebengTab.PESAN -> navController.navigate(NavDestination.Messages)
+                        NebengTab.AKUN -> { /* already on profile */ }
                     }
                 }
             )
         }
 
         composable<NavDestination.Settings> {
-            com.disinidev.nebeng.presentation.settings.SettingsScreen(
+            SettingsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -315,7 +336,7 @@ fun NebengNavGraph(
         }
 
         composable<NavDestination.ChangePassword> {
-            com.disinidev.nebeng.presentation.settings.password.ChangePasswordScreen(
+            ChangePasswordScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }
@@ -323,15 +344,17 @@ fun NebengNavGraph(
         }
 
         composable<NavDestination.EditProfile> {
-            com.disinidev.nebeng.presentation.profile.edit.EditProfileScreen(
+            EditProfileScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }
             )
         }
 
-        composable<NavDestination.Notifications> {
-            com.disinidev.nebeng.presentation.notification.NotificationScreen(
+        composable<NavDestination.Notifications>(
+            deepLinks = listOf(navDeepLink { uriPattern = "nebeng://notifications" })
+        ) {
+            NotificationScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -343,7 +366,7 @@ fun NebengNavGraph(
 
         // --- Search & Rides ---
         composable<NavDestination.Search> { backStackEntry ->
-            com.disinidev.nebeng.presentation.search.form.SearchFormScreen(
+            SearchFormScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -364,7 +387,7 @@ fun NebengNavGraph(
 
         composable<NavDestination.SearchResults> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.SearchResults>()
-            com.disinidev.nebeng.presentation.search.results.SearchResultsScreen(
+            SearchResultsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -387,7 +410,7 @@ fun NebengNavGraph(
         }
 
         composable<NavDestination.OfferRide> {
-            com.disinidev.nebeng.presentation.driver.offer.OfferRideScreen(
+            OfferRideScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -403,7 +426,7 @@ fun NebengNavGraph(
             val route = backStackEntry.toRoute<NavDestination.RideDetail>()
             val isMotor = route.rideId.contains("motor", ignoreCase = true) || route.rideId.contains("ride_2", ignoreCase = true)
             if (isMotor) {
-                com.disinidev.nebeng.presentation.checkout.CheckoutMotorScreen(
+                CheckoutMotorScreen(
                     onNavigateBack = {
                         navController.popBackStack()
                     },
@@ -412,7 +435,7 @@ fun NebengNavGraph(
                     }
                 )
             } else {
-                com.disinidev.nebeng.presentation.checkout.CheckoutCarScreen(
+                CheckoutCarScreen(
                     onNavigateBack = {
                         navController.popBackStack()
                     },
@@ -426,7 +449,7 @@ fun NebengNavGraph(
         // --- Booking Flow ---
         composable<NavDestination.CheckoutCar> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.CheckoutCar>()
-            com.disinidev.nebeng.presentation.checkout.CheckoutCarScreen(
+            CheckoutCarScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -438,7 +461,7 @@ fun NebengNavGraph(
 
         composable<NavDestination.CheckoutMotor> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.CheckoutMotor>()
-            com.disinidev.nebeng.presentation.checkout.CheckoutMotorScreen(
+            CheckoutMotorScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -450,7 +473,7 @@ fun NebengNavGraph(
 
         composable<NavDestination.Payment> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.Payment>()
-            androidx.compose.runtime.LaunchedEffect(Unit) {
+            LaunchedEffect(Unit) {
                 navController.navigate(NavDestination.LiveTracking(bookingId = route.bookingId)) {
                     popUpTo(NavDestination.Payment(bookingId = route.bookingId, amount = route.amount)) { inclusive = true }
                 }
@@ -459,17 +482,18 @@ fun NebengNavGraph(
 
         composable<NavDestination.QrisPayment> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.QrisPayment>()
-            androidx.compose.runtime.LaunchedEffect(Unit) {
+            LaunchedEffect(Unit) {
                 navController.navigate(NavDestination.LiveTracking(bookingId = route.bookingId)) {
                     popUpTo(NavDestination.QrisPayment(bookingId = route.bookingId, paymentId = route.paymentId)) { inclusive = true }
                 }
             }
         }
 
-        // --- Tracking ---
-        composable<NavDestination.LiveTracking> { backStackEntry ->
+        composable<NavDestination.LiveTracking>(
+            deepLinks = listOf(navDeepLink { uriPattern = "nebeng://trip/{bookingId}/tracking" })
+        ) { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.LiveTracking>()
-            com.disinidev.nebeng.presentation.tracking.LiveTrackingScreen(
+            LiveTrackingScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -490,9 +514,11 @@ fun NebengNavGraph(
             )
         }
 
-        composable<NavDestination.TripDone> { backStackEntry ->
+        composable<NavDestination.TripDone>(
+            deepLinks = listOf(navDeepLink { uriPattern = "nebeng://trip/{bookingId}/done" })
+        ) { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.TripDone>()
-            com.disinidev.nebeng.presentation.tripdone.TripDoneScreen(
+            TripDoneScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onSkip = {
                     navController.navigate(NavDestination.Home) {
@@ -509,7 +535,7 @@ fun NebengNavGraph(
 
         composable<NavDestination.Tip> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.Tip>()
-            androidx.compose.runtime.LaunchedEffect(Unit) {
+            LaunchedEffect(Unit) {
                 navController.navigate(NavDestination.Home) {
                     popUpTo(NavDestination.Home) { inclusive = true }
                 }

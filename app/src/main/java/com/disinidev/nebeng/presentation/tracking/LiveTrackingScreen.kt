@@ -2,6 +2,7 @@ package com.disinidev.nebeng.presentation.tracking
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,6 +36,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,6 +58,7 @@ import com.disinidev.nebeng.R
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
 import com.disinidev.nebeng.domain.model.VehicleType
+import org.maplibre.android.geometry.LatLng
 
 @Composable
 fun LiveTrackingScreen(
@@ -65,18 +70,34 @@ fun LiveTrackingScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var projectedPoints by remember { mutableStateOf<ProjectedTrackingPoints?>(null) }
+    var recenterTrigger by remember { mutableStateOf(0) }
 
     Box(modifier = modifier.fillMaxSize()) {
         // 1. Interactive OpenStreetMap (MapLibre Native)
         TrackingMapView(
+            driverLocation = LatLng(state.driverCurrentLat, state.driverCurrentLng),
+            pickupLocation = LatLng(state.pickupLat, state.pickupLng),
+            destLocation = LatLng(state.destinationLat, state.destinationLng),
+            onPointsProjected = { points ->
+                projectedPoints = points
+            },
+            recenterTrigger = recenterTrigger,
             modifier = Modifier.fillMaxSize()
         )
 
         // 2. Pointing Tracking Map Overlay (Route Polylines, Needles & Pulse Radar)
         LiveTrackingMapOverlay(
             state = state,
-            onRecenterClick = viewModel::startLiveTrackingSimulation,
-            onGpsBadgeClick = viewModel::broadcastCurrentDeviceGps,
+            projectedPoints = projectedPoints,
+            onRecenterClick = {
+                recenterTrigger++
+                viewModel.recenterToCurrentLocations()
+            },
+            onGpsBadgeClick = {
+                recenterTrigger++
+                viewModel.recenterToCurrentLocations()
+            },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -333,7 +354,7 @@ fun LiveTrackingScreen(
                         onClick = {
                             viewModel.showEmergencyDialog(false)
                             val callIntent = Intent(Intent.ACTION_DIAL).apply {
-                                data = android.net.Uri.parse("tel:112")
+                                data = Uri.parse("tel:112")
                             }
                             context.startActivity(callIntent)
                         }

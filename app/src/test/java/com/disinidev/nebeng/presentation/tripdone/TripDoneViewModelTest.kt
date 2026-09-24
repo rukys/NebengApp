@@ -1,6 +1,7 @@
 package com.disinidev.nebeng.presentation.tripdone
 
 import androidx.lifecycle.SavedStateHandle
+import com.disinidev.nebeng.domain.repository.BookingRepository
 import com.disinidev.nebeng.util.MainDispatcherRule
 import com.google.firebase.auth.FirebaseAuth
 import io.github.jan.supabase.SupabaseClient
@@ -23,7 +24,7 @@ class TripDoneViewModelTest {
 
     private val firebaseAuth = mockk<FirebaseAuth>(relaxed = true)
     private val supabaseClient = mockk<SupabaseClient>(relaxed = true)
-    private val bookingRepository = mockk<com.disinidev.nebeng.domain.repository.BookingRepository>(relaxed = true)
+    private val bookingRepository = mockk<BookingRepository>(relaxed = true)
     private val savedStateHandle = SavedStateHandle(mapOf("bookingId" to "booking-123"))
     private lateinit var viewModel: TripDoneViewModel
 

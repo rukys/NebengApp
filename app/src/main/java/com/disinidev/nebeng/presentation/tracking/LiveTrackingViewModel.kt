@@ -42,8 +42,7 @@ class LiveTrackingViewModel @Inject constructor(
 
     init {
         loadBooking()
-        fetchRealDeviceLocation()
-        startLiveTrackingSimulation()
+        initializeTracking()
         observeDriverLocationStream()
     }
 
@@ -52,22 +51,52 @@ class LiveTrackingViewModel @Inject constructor(
     }
 
     /**
-     * Reads actual device GPS coordinate to ground pickup point accurately if permission is granted.
+     * Initializes pickup point to real device GPS location if available,
+     * and sets driver starting position ~450m away approaching the pickup point.
      */
-    private fun fetchRealDeviceLocation() {
+    private fun initializeTracking() {
         viewModelScope.launch {
-            if (locationClient.hasLocationPermission()) {
-                val loc = locationClient.getCurrentLocation()
-                if (loc != null) {
-                    _uiState.update { current ->
-                        current.copy(
-                            pickupLat = loc.latitude,
-                            pickupLng = loc.longitude,
-                            pickupLocation = loc.addressName ?: current.pickupLocation
-                        )
-                    }
-                }
+            val loc = if (locationClient.hasLocationPermission()) {
+                locationClient.getCurrentLocation()
+            } else null
+
+            val pLat = loc?.latitude ?: _uiState.value.pickupLat
+            val pLng = loc?.longitude ?: _uiState.value.pickupLng
+
+            // Driver starts ~400-500m away from pickup point approaching along the road
+            val dStartLat = pLat - 0.0035
+            val dStartLng = pLng - 0.0030
+
+            // Destination is ~2km away
+            val dstLat = pLat + 0.0120
+            val dstLng = pLng + 0.0150
+
+            _uiState.update { current ->
+                current.copy(
+                    pickupLat = pLat,
+                    pickupLng = pLng,
+                    driverCurrentLat = dStartLat,
+                    driverCurrentLng = dStartLng,
+                    destinationLat = dstLat,
+                    destinationLng = dstLng,
+                    distanceMeters = 450,
+                    etaMinutes = 3,
+                    statusText = "Driver Sedang Menjemput",
+                    progress = 0.0f,
+                    isArrived = false
+                )
             }
+
+            // Sync driver initial location
+            updateDriverLocationUseCase(bookingId, dStartLat, dStartLng)
+
+            // Start smooth driver simulation approaching user's pickup point
+            startLiveTrackingSimulation(
+                startLat = dStartLat,
+                startLng = dStartLng,
+                targetLat = pLat,
+                targetLng = pLng
+            )
         }
     }
 
@@ -79,8 +108,14 @@ class LiveTrackingViewModel @Inject constructor(
         observeJob = viewModelScope.launch {
             observeDriverLocationUseCase(bookingId).collect { tripLoc ->
                 if (tripLoc != null) {
-                    simulationJob?.cancel()
-                    onRemoteDriverLocationReceived(tripLoc)
+                    val pLat = _uiState.value.pickupLat
+                    val pLng = _uiState.value.pickupLng
+                    val dist = calculateDistanceMeters(tripLoc.lat, tripLoc.lng, pLat, pLng)
+                    // Discard stale remote locations (> 15km away)
+                    if (dist <= 15000) {
+                        simulationJob?.cancel()
+                        onRemoteDriverLocationReceived(tripLoc)
+                    }
                 }
             }
         }
@@ -107,16 +142,16 @@ class LiveTrackingViewModel @Inject constructor(
     }
 
     /**
-     * Broadcasts GPS updates and syncs them to Supabase trip_locations table.
+     * Starts smooth driver simulation approaching user's pickup point.
      */
-    fun startLiveTrackingSimulation() {
+    fun startLiveTrackingSimulation(
+        startLat: Double = _uiState.value.driverCurrentLat,
+        startLng: Double = _uiState.value.driverCurrentLng,
+        targetLat: Double = _uiState.value.pickupLat,
+        targetLng: Double = _uiState.value.pickupLng
+    ) {
         simulationJob?.cancel()
         simulationJob = viewModelScope.launch {
-            val startLat = -6.2245
-            val startLng = 106.8048
-            val pickupLat = _uiState.value.pickupLat
-            val pickupLng = _uiState.value.pickupLng
-
             val steps = listOf(
                 TrackingStep(progress = 0.0f, distance = 450, eta = 3, status = "Driver Sedang Menjemput", bearing = 45f),
                 TrackingStep(progress = 0.25f, distance = 340, eta = 3, status = "Driver Sedang Menjemput", bearing = 48f),
@@ -127,8 +162,8 @@ class LiveTrackingViewModel @Inject constructor(
 
             for (step in steps) {
                 delay(3500)
-                val curLat = startLat + (pickupLat - startLat) * step.progress
-                val curLng = startLng + (pickupLng - startLng) * step.progress
+                val curLat = startLat + (targetLat - startLat) * step.progress
+                val curLng = startLng + (targetLng - startLng) * step.progress
 
                 // Sync live position to Supabase trip_locations
                 updateDriverLocationUseCase(bookingId, curLat, curLng)
@@ -150,14 +185,19 @@ class LiveTrackingViewModel @Inject constructor(
     }
 
     /**
-     * Broadcasts current physical device GPS location to Supabase as driver.
+     * Refreshes user location from device GPS when GPS button is clicked.
      */
-    fun broadcastCurrentDeviceGps() {
+    fun recenterToCurrentLocations() {
         viewModelScope.launch {
             if (locationClient.hasLocationPermission()) {
                 val loc = locationClient.getCurrentLocation()
                 if (loc != null) {
-                    updateDriverLocationUseCase(bookingId, loc.latitude, loc.longitude)
+                    _uiState.update { current ->
+                        current.copy(
+                            pickupLat = loc.latitude,
+                            pickupLng = loc.longitude
+                        )
+                    }
                 }
             }
         }

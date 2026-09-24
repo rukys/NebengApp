@@ -1,5 +1,6 @@
 package com.disinidev.nebeng.data.repository
 
+import android.util.Log
 import com.disinidev.nebeng.data.model.RideSearchResultDto
 import com.disinidev.nebeng.domain.repository.CreateRideRequest
 import com.disinidev.nebeng.domain.repository.RideRepository
@@ -58,16 +59,16 @@ class RideRepositoryImpl @Inject constructor(
                     "max_passengers" to request.maxPassengers,
                     "available_seats" to request.availableSeats,
                     "pickup_address" to request.pickupAddress,
-                    "pickup_location" to "SRID=4326;POINT(${request.pickupLng} ${request.pickupLat})",
+                    "pickup_location" to "POINT(${request.pickupLng} ${request.pickupLat})",
                     "dropoff_address" to request.dropoffAddress,
-                    "dropoff_location" to "SRID=4326;POINT(${request.dropoffLng} ${request.dropoffLat})",
+                    "dropoff_location" to "POINT(${request.dropoffLng} ${request.dropoffLat})",
                     "departure_time" to request.departureTime,
                     "status" to "available",
                     "notes" to (request.notes ?: "")
                 )
                 supabaseClient.postgrest.from("rides").insert(insertPayload)
-            } catch (_: Exception) {
-                // In-memory / demo fallback
+            } catch (e: Exception) {
+                Log.e("RideRepository", "Supabase createRide error: ${e.message}", e)
             }
             newId
         }

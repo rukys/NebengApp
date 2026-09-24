@@ -1,5 +1,6 @@
 package com.disinidev.nebeng.presentation.auth.register
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -222,7 +223,7 @@ class RegisterViewModel @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            android.util.Log.e("RegisterViewModel", "Supabase sync error: ${e.message}", e)
+            Log.e("RegisterViewModel", "Supabase sync error: ${e.message}", e)
         }
     }
 }

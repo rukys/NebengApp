@@ -2,6 +2,7 @@ package com.disinidev.nebeng.presentation.driver.requests
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.disinidev.nebeng.core.location.LocationClient
 import com.disinidev.nebeng.domain.repository.BookingRepository
 import com.disinidev.nebeng.domain.repository.DriverBookingRequest
 import com.disinidev.nebeng.domain.usecase.UpdateDriverLocationUseCase
@@ -24,7 +25,8 @@ data class DriverRequestsUiState(
 class DriverRequestsViewModel @Inject constructor(
     private val bookingRepository: BookingRepository,
     private val updateDriverLocationUseCase: UpdateDriverLocationUseCase,
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    private val locationClient: LocationClient
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DriverRequestsUiState())
@@ -53,8 +55,11 @@ class DriverRequestsViewModel @Inject constructor(
     fun acceptRequest(bookingId: String) {
         viewModelScope.launch {
             bookingRepository.respondBookingRequest(bookingId, accept = true)
-            // Initialize driver location entry in Supabase trip_locations
-            updateDriverLocationUseCase(bookingId, -6.2245, 106.8048)
+            // Initialize driver location entry in Supabase trip_locations using real GPS if available
+            val loc = if (locationClient.hasLocationPermission()) locationClient.getCurrentLocation() else null
+            val lat = loc?.latitude ?: -6.2245
+            val lng = loc?.longitude ?: 106.8048
+            updateDriverLocationUseCase(bookingId, lat, lng)
 
             _uiState.update { state ->
                 state.copy(

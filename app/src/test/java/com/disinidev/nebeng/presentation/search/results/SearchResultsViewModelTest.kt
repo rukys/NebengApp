@@ -3,6 +3,7 @@ package com.disinidev.nebeng.presentation.search.results
 import androidx.lifecycle.SavedStateHandle
 import com.disinidev.nebeng.domain.model.VehicleType
 import com.disinidev.nebeng.domain.usecase.SearchRidesUseCase
+import com.disinidev.nebeng.presentation.search.model.DriverGender
 import com.disinidev.nebeng.presentation.search.model.SearchFilterOptions
 import com.disinidev.nebeng.presentation.search.model.SortBy
 import com.disinidev.nebeng.presentation.search.model.VehicleFilter
@@ -111,13 +112,13 @@ class SearchResultsViewModelTest {
     fun `filtering by FEMALE driver returns only female drivers`() {
         viewModel.onDraftFilterChanged(
             SearchFilterOptions(
-                driverGender = com.disinidev.nebeng.presentation.search.model.DriverGender.FEMALE
+                driverGender = DriverGender.FEMALE
             )
         )
         viewModel.onApplyFilter()
 
         val state = viewModel.uiState.value
         assertTrue(state.displayedRides.isNotEmpty())
-        assertTrue(state.displayedRides.all { it.driverGender == com.disinidev.nebeng.presentation.search.model.DriverGender.FEMALE })
+        assertTrue(state.displayedRides.all { it.driverGender == DriverGender.FEMALE })
     }
 }

@@ -2,10 +2,8 @@ package com.disinidev.nebeng.domain.usecase
 
 import com.disinidev.nebeng.domain.repository.CreateRideRequest
 import com.disinidev.nebeng.domain.repository.RideRepository
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
+import com.disinidev.nebeng.domain.repository.UserRepository
 import io.mockk.coEvery
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -16,15 +14,13 @@ import org.junit.Test
 class CreateRideUseCaseTest {
 
     private val rideRepository = mockk<RideRepository>()
-    private val firebaseAuth = mockk<FirebaseAuth>()
-    private val firebaseUser = mockk<FirebaseUser>()
+    private val userRepository = mockk<UserRepository>()
     private lateinit var useCase: CreateRideUseCase
 
     @Before
     fun setUp() {
-        every { firebaseAuth.currentUser } returns firebaseUser
-        every { firebaseUser.uid } returns "driver-456"
-        useCase = CreateRideUseCase(rideRepository, firebaseAuth)
+        coEvery { userRepository.getCurrentUserUuid() } returns "00000000-0000-0000-0000-000000000002"
+        useCase = CreateRideUseCase(rideRepository, userRepository)
     }
 
     @Test

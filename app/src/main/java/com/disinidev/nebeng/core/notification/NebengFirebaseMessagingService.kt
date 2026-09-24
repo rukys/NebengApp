@@ -25,6 +25,8 @@ class NebengFirebaseMessagingService : FirebaseMessagingService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    @Suppress("DEPRECATION")
+    @Deprecated("Deprecated in Java")
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         val userId = firebaseAuth.currentUser?.uid ?: return
@@ -51,12 +53,14 @@ class NebengFirebaseMessagingService : FirebaseMessagingService() {
             ?: remoteMessage.data["body"]
             ?: "Update baru pada tebengan Anda"
         val channelId = remoteMessage.data["channel_id"] ?: NotificationHelper.CHANNEL_TRIP
+        val actionUrl = remoteMessage.data["action_url"]
 
         NotificationHelper.showNotification(
             context = applicationContext,
             title = title,
             body = body,
-            channelId = channelId
+            channelId = channelId,
+            actionUrl = actionUrl
         )
     }
 }
