@@ -2,7 +2,9 @@ package com.disinidev.nebeng.presentation.checkout
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.disinidev.nebeng.domain.model.VehicleType
+import com.disinidev.nebeng.domain.usecase.CreateBookingUseCase
 import com.disinidev.nebeng.presentation.search.model.DriverGender
 import com.disinidev.nebeng.presentation.search.model.RideItemUi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -10,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 enum class HelmetOption {
@@ -27,7 +30,8 @@ data class CheckoutUiState(
 
 @HiltViewModel
 class CheckoutViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
+    private val createBookingUseCase: CreateBookingUseCase
 ) : ViewModel() {
 
     private val rideId: String = savedStateHandle.get<String>("rideId") ?: "ride_1"
@@ -47,8 +51,15 @@ class CheckoutViewModel @Inject constructor(
         _uiState.update { it.copy(helmetOption = option) }
     }
 
-    fun confirmBooking() {
-        _uiState.update { it.copy(isConfirmed = true) }
+    fun confirmBooking(onSuccess: (bookingId: String) -> Unit = {}) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val seat = _uiState.value.selectedSeat
+            val result = createBookingUseCase(rideId, seat)
+            val bookingId = result.getOrNull()?.bookingId ?: "booking_$rideId"
+            _uiState.update { it.copy(isLoading = false, isConfirmed = true) }
+            onSuccess(bookingId)
+        }
     }
 
     private fun getRideById(id: String): RideItemUi {

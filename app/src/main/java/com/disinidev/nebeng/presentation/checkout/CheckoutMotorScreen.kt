@@ -76,11 +76,11 @@ fun CheckoutMotorScreen(
                 NebengButton(
                     text = "Konfirmasi & Nebeng",
                     trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+                    isLoading = state.isLoading,
                     onClick = {
-                        viewModel.confirmBooking()
-                        ride?.let {
+                        viewModel.confirmBooking { bookingId ->
                             onConfirmBooking(
-                                it.id,
+                                bookingId,
                                 if (state.helmetOption == HelmetOption.DRIVER_HELMET) "driver_helmet" else "bring_own"
                             )
                         }

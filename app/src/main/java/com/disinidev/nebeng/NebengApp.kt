@@ -9,5 +9,6 @@ class NebengApp : Application() {
     override fun onCreate() {
         super.onCreate()
         MapLibre.getInstance(this)
+        com.disinidev.nebeng.core.notification.NotificationHelper.createNotificationChannels(this)
     }
 }

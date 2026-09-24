@@ -64,6 +64,8 @@ fun HomeScreen(
     onNavigateToRoutine: () -> Unit = {},
     onNavigateToRideDetail: (String) -> Unit = {},
     onNavigateToCheckout: (String) -> Unit = {},
+    onNavigateToCheckoutCar: (String) -> Unit = onNavigateToCheckout,
+    onNavigateToCheckoutMotor: (String) -> Unit = onNavigateToCheckout,
     onTabSelected: (NebengTab) -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -185,10 +187,17 @@ fun HomeScreen(
                     }
                 } else {
                     items(state.popularRides, key = { it.id }) { ride ->
+                        val onBook = {
+                            if (ride.vehicleInfo.type == com.disinidev.nebeng.domain.model.VehicleType.MOTORCYCLE) {
+                                onNavigateToCheckoutMotor(ride.id)
+                            } else {
+                                onNavigateToCheckoutCar(ride.id)
+                            }
+                        }
                         RideCard(
                             ride = ride,
-                            onBookClick = { onNavigateToCheckout(ride.id) },
-                            onClick = { onNavigateToRideDetail(ride.id) }
+                            onBookClick = { onBook() },
+                            onClick = { onBook() }
                         )
                     }
                 }

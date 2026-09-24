@@ -184,7 +184,7 @@ fun NebengNavGraph(
                     navController.navigate(NavDestination.Search(vehicleType = vehicleType))
                 },
                 onNavigateToOfferRide = {
-                    navController.navigate(NavDestination.Search(vehicleType = "car"))
+                    navController.navigate(NavDestination.OfferRide)
                 },
                 onNavigateToRoutine = {
                     navController.navigate(NavDestination.Search(vehicleType = "car"))
@@ -194,6 +194,12 @@ fun NebengNavGraph(
                 },
                 onNavigateToCheckout = { rideId ->
                     navController.navigate(NavDestination.CheckoutCar(rideId = rideId))
+                },
+                onNavigateToCheckoutCar = { rideId ->
+                    navController.navigate(NavDestination.CheckoutCar(rideId = rideId))
+                },
+                onNavigateToCheckoutMotor = { rideId ->
+                    navController.navigate(NavDestination.CheckoutMotor(rideId = rideId))
                 },
                 onTabSelected = { tab ->
                     when (tab) {
@@ -297,10 +303,21 @@ fun NebengNavGraph(
                 onNavigateToEditProfile = {
                     navController.navigate(NavDestination.EditProfile)
                 },
+                onNavigateToChangePassword = {
+                    navController.navigate(NavDestination.ChangePassword)
+                },
                 onLogoutSuccess = {
                     navController.navigate(NavDestination.Login) {
                         popUpTo(0) { inclusive = true }
                     }
+                }
+            )
+        }
+
+        composable<NavDestination.ChangePassword> {
+            com.disinidev.nebeng.presentation.settings.password.ChangePasswordScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }
@@ -364,14 +381,46 @@ fun NebengNavGraph(
                     navController.navigate(NavDestination.CheckoutMotor(rideId = rideId))
                 },
                 onNavigateToOfferRide = {
-                    navController.navigate(NavDestination.Search(vehicleType = "car"))
+                    navController.navigate(NavDestination.OfferRide)
+                }
+            )
+        }
+
+        composable<NavDestination.OfferRide> {
+            com.disinidev.nebeng.presentation.driver.offer.OfferRideScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onPublishSuccess = {
+                    navController.navigate(NavDestination.Home) {
+                        popUpTo(NavDestination.Home) { inclusive = true }
+                    }
                 }
             )
         }
 
         composable<NavDestination.RideDetail> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.RideDetail>()
-            PlaceholderScreen(name = "Ride Detail: ${route.rideId}")
+            val isMotor = route.rideId.contains("motor", ignoreCase = true) || route.rideId.contains("ride_2", ignoreCase = true)
+            if (isMotor) {
+                com.disinidev.nebeng.presentation.checkout.CheckoutMotorScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onConfirmBooking = { bookingId, _ ->
+                        navController.navigate(NavDestination.LiveTracking(bookingId = bookingId))
+                    }
+                )
+            } else {
+                com.disinidev.nebeng.presentation.checkout.CheckoutCarScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onConfirmBooking = { bookingId, _ ->
+                        navController.navigate(NavDestination.LiveTracking(bookingId = bookingId))
+                    }
+                )
+            }
         }
 
         // --- Booking Flow ---
@@ -381,8 +430,8 @@ fun NebengNavGraph(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onConfirmBooking = { rideId, seatPosition ->
-                    navController.navigate(NavDestination.LiveTracking(bookingId = "booking_$rideId"))
+                onConfirmBooking = { bookingId, seatPosition ->
+                    navController.navigate(NavDestination.LiveTracking(bookingId = bookingId))
                 }
             )
         }
@@ -393,20 +442,28 @@ fun NebengNavGraph(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onConfirmBooking = { rideId, helmetChoice ->
-                    navController.navigate(NavDestination.LiveTracking(bookingId = "booking_$rideId"))
+                onConfirmBooking = { bookingId, helmetChoice ->
+                    navController.navigate(NavDestination.LiveTracking(bookingId = bookingId))
                 }
             )
         }
 
         composable<NavDestination.Payment> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.Payment>()
-            PlaceholderScreen(name = "Payment for Booking ${route.bookingId} - Rp ${route.amount}")
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                navController.navigate(NavDestination.LiveTracking(bookingId = route.bookingId)) {
+                    popUpTo(NavDestination.Payment(bookingId = route.bookingId, amount = route.amount)) { inclusive = true }
+                }
+            }
         }
 
         composable<NavDestination.QrisPayment> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.QrisPayment>()
-            PlaceholderScreen(name = "QRIS Payment ${route.paymentId}")
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                navController.navigate(NavDestination.LiveTracking(bookingId = route.bookingId)) {
+                    popUpTo(NavDestination.QrisPayment(bookingId = route.bookingId, paymentId = route.paymentId)) { inclusive = true }
+                }
+            }
         }
 
         // --- Tracking ---
@@ -424,6 +481,11 @@ fun NebengNavGraph(
                             pin = if (bookingId.contains("ride_2")) "215 889" else "489 201"
                         )
                     )
+                },
+                onTripFinished = { bookingId ->
+                    navController.navigate(NavDestination.TripDone(bookingId = bookingId)) {
+                        popUpTo(NavDestination.LiveTracking(bookingId = bookingId)) { inclusive = true }
+                    }
                 }
             )
         }
@@ -447,25 +509,11 @@ fun NebengNavGraph(
 
         composable<NavDestination.Tip> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.Tip>()
-            PlaceholderScreen(name = "Tip QRIS for Booking ${route.bookingId}")
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                navController.navigate(NavDestination.Home) {
+                    popUpTo(NavDestination.Home) { inclusive = true }
+                }
+            }
         }
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(
-    name: String,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(NebengColor.Primary0),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = name,
-            color = NebengColor.Gray800
-        )
     }
 }

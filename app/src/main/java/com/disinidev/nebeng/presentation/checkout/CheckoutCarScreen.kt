@@ -83,9 +83,11 @@ fun CheckoutCarScreen(
                 NebengButton(
                     text = "Konfirmasi & Nebeng",
                     trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+                    isLoading = state.isLoading,
                     onClick = {
-                        viewModel.confirmBooking()
-                        ride?.let { onConfirmBooking(it.id, state.selectedSeat) }
+                        viewModel.confirmBooking { bookingId ->
+                            onConfirmBooking(bookingId, state.selectedSeat)
+                        }
                     },
                     modifier = Modifier.fillMaxWidth()
                 )

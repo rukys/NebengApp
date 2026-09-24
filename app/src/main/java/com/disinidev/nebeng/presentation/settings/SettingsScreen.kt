@@ -68,6 +68,7 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
     onNavigateToEditProfile: () -> Unit = {},
+    onNavigateToChangePassword: () -> Unit = {},
     onLogoutSuccess: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -296,7 +297,10 @@ fun SettingsScreen(
     }
 
     if (showSecuritySheet) {
-        SecurityBottomSheet(onDismiss = { showSecuritySheet = false })
+        SecurityBottomSheet(
+            onDismiss = { showSecuritySheet = false },
+            onNavigateToChangePassword = onNavigateToChangePassword
+        )
     }
 
     if (showDocsSheet) {
@@ -598,7 +602,10 @@ private fun EditProfileBottomSheet(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SecurityBottomSheet(onDismiss: () -> Unit) {
+private fun SecurityBottomSheet(
+    onDismiss: () -> Unit,
+    onNavigateToChangePassword: () -> Unit = {}
+) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -637,9 +644,21 @@ private fun SecurityBottomSheet(onDismiss: () -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
 
             NebengButton(
+                text = "Ubah Kata Sandi ➔",
+                onClick = {
+                    onDismiss()
+                    onNavigateToChangePassword()
+                },
+                style = NebengButtonStyle.PRIMARY,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            NebengButton(
                 text = "Tutup",
                 onClick = onDismiss,
-                style = NebengButtonStyle.PRIMARY,
+                style = NebengButtonStyle.SECONDARY,
                 modifier = Modifier.fillMaxWidth()
             )
 

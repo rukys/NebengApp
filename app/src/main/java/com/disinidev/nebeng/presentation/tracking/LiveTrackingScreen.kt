@@ -60,7 +60,8 @@ fun LiveTrackingScreen(
     modifier: Modifier = Modifier,
     viewModel: LiveTrackingViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit = {},
-    onNavigateToChat: (driverName: String, bookingId: String) -> Unit = { _, _ -> }
+    onNavigateToChat: (driverName: String, bookingId: String) -> Unit = { _, _ -> },
+    onTripFinished: (bookingId: String) -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -71,120 +72,13 @@ fun LiveTrackingScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // 2. Floating Map Markers (Pills in Center Area)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Destination Pin (SCBD Lot 8)
-                Box(
-                    modifier = Modifier
-                        .shadow(4.dp, RoundedCornerShape(NebengRadius.Full))
-                        .clip(RoundedCornerShape(NebengRadius.Full))
-                        .background(NebengColor.Primary900)
-                        .padding(horizontal = 14.dp, vertical = 7.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Flag,
-                            contentDescription = null,
-                            tint = NebengColor.Primary0,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = state.destinationLocation,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = NebengColor.Primary0,
-                            style = TextStyle(
-                                platformStyle = PlatformTextStyle(includeFontPadding = false)
-                            )
-                        )
-                    }
-                }
-
-                // Driver Position Pin (White Pill with Black Border)
-                Box(
-                    modifier = Modifier
-                        .shadow(6.dp, RoundedCornerShape(NebengRadius.Full))
-                        .clip(RoundedCornerShape(NebengRadius.Full))
-                        .background(NebengColor.Primary0)
-                        .border(
-                            width = 2.dp,
-                            color = NebengColor.Primary900,
-                            shape = RoundedCornerShape(NebengRadius.Full)
-                        )
-                        .padding(horizontal = 14.dp, vertical = 7.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = if (state.vehicleType == VehicleType.MOTORCYCLE) {
-                                Icons.Default.TwoWheeler
-                            } else {
-                                Icons.Default.DirectionsCar
-                            },
-                            contentDescription = null,
-                            tint = NebengColor.Primary900,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "${state.driverName} (${state.vehicleModel.split(" ").firstOrNull() ?: ""} ${state.vehiclePlate})",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = NebengColor.Primary900,
-                            style = TextStyle(
-                                platformStyle = PlatformTextStyle(includeFontPadding = false)
-                            )
-                        )
-                    }
-                }
-
-                // Pickup Pin (Jemput: Pintu Barat Lawson)
-                Box(
-                    modifier = Modifier
-                        .shadow(4.dp, RoundedCornerShape(NebengRadius.Full))
-                        .clip(RoundedCornerShape(NebengRadius.Full))
-                        .background(NebengColor.Primary900)
-                        .padding(horizontal = 14.dp, vertical = 7.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(NebengColor.Primary0)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = state.pickupLocation,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = NebengColor.Primary0,
-                            style = TextStyle(
-                                platformStyle = PlatformTextStyle(includeFontPadding = false)
-                            )
-                        )
-                    }
-                }
-            }
-        }
+        // 2. Pointing Tracking Map Overlay (Route Polylines, Needles & Pulse Radar)
+        LiveTrackingMapOverlay(
+            state = state,
+            onRecenterClick = viewModel::startLiveTrackingSimulation,
+            onGpsBadgeClick = viewModel::broadcastCurrentDeviceGps,
+            modifier = Modifier.fillMaxSize()
+        )
 
         // 3. Top Navigation Overlay
         Box(
@@ -217,12 +111,13 @@ fun LiveTrackingScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // ETA Pill (Center)
+                // ETA Pill (Center - clickable to trigger trip completion)
                 Box(
                     modifier = Modifier
                         .shadow(4.dp, RoundedCornerShape(NebengRadius.Full))
                         .clip(RoundedCornerShape(NebengRadius.Full))
                         .background(NebengColor.Primary900)
+                        .clickable { onTripFinished(state.bookingId) }
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -238,7 +133,7 @@ fun LiveTrackingScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Tiba dlm ${state.etaMinutes} mnt • ${state.distanceMeters}m",
+                            text = if (state.isArrived) "Driver Tiba • Siap Berangkat" else "Tiba dlm ${state.etaMinutes} mnt • ${state.distanceMeters}m",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = NebengColor.Primary0,
@@ -302,9 +197,10 @@ fun LiveTrackingScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "${state.vehicleModel} • ${state.vehiclePlate}",
+                            text = if (state.isArrived) "Tunjukkan PIN jemput kepada pengemudi" else "${state.vehicleModel} • ${state.vehiclePlate}",
                             fontSize = 12.sp,
-                            color = NebengColor.Gray400
+                            color = if (state.isArrived) NebengColor.Primary900 else NebengColor.Gray400,
+                            fontWeight = if (state.isArrived) FontWeight.Bold else FontWeight.Normal
                         )
                     }
 
@@ -330,7 +226,7 @@ fun LiveTrackingScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Action Buttons Row: Bagikan Rute & Chat Driver
+                // Action Buttons Row: Bagikan Rute & Chat Driver / Mulai Perjalanan
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -368,14 +264,20 @@ fun LiveTrackingScreen(
                         }
                     }
 
-                    // Button: Chat Driver
+                    // Button: Chat Driver OR Mulai Perjalanan (if arrived)
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
                             .clip(RoundedCornerShape(NebengRadius.Lg))
                             .background(NebengColor.Primary900)
-                            .clickable { onNavigateToChat(state.driverName, state.bookingId) },
+                            .clickable {
+                                if (state.isArrived) {
+                                    onTripFinished(state.bookingId)
+                                } else {
+                                    onNavigateToChat(state.driverName, state.bookingId)
+                                }
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
@@ -383,14 +285,16 @@ fun LiveTrackingScreen(
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Chat,
+                                imageVector = if (state.isArrived) Icons.AutoMirrored.Filled.ArrowBack else Icons.AutoMirrored.Filled.Chat,
                                 contentDescription = null,
                                 tint = NebengColor.Primary0,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .then(if (state.isArrived) Modifier.clip(CircleShape) else Modifier)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Chat Driver",
+                                text = if (state.isArrived) "Mulai Perjalanan ➔" else "Chat Driver",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = NebengColor.Primary0,

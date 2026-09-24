@@ -28,9 +28,13 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +49,7 @@ import com.disinidev.nebeng.core.component.NebengButton
 import com.disinidev.nebeng.core.component.NebengButtonStyle
 import com.disinidev.nebeng.core.component.NebengTab
 import com.disinidev.nebeng.core.designsystem.NebengColor
+import com.disinidev.nebeng.core.designsystem.NebengRadius
 
 @Composable
 fun ActivityScreen(
@@ -55,6 +60,7 @@ fun ActivityScreen(
     viewModel: ActivityViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    var isRequestsSheetOpen by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -95,8 +101,62 @@ fun ActivityScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Ongoing State: Active Trip Card
+            // Ongoing State: Active Trip Card & Driver Requests
             if (state.selectedFilter == ActivityFilter.ONGOING) {
+                // Driver Requests Banner
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(NebengRadius.Lg))
+                            .background(NebengColor.Primary50)
+                            .border(1.dp, NebengColor.Gray200, RoundedCornerShape(NebengRadius.Lg))
+                            .clickable { isRequestsSheetOpen = true }
+                            .padding(14.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(NebengColor.Primary900),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = NebengColor.Primary0,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Permintaan Penumpang Masuk",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NebengColor.Primary900
+                                )
+                                Text(
+                                    text = "Review & konfirmasi calon penumpang",
+                                    fontSize = 11.sp,
+                                    color = NebengColor.Gray600
+                                )
+                            }
+                            Text(
+                                text = "Kelola ➔",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NebengColor.Primary900
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
+
                 item {
                     val activeTrip = state.activeTrip
                     if (activeTrip != null) {
@@ -161,6 +221,12 @@ fun ActivityScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+    }
+
+    if (isRequestsSheetOpen) {
+        com.disinidev.nebeng.presentation.driver.requests.DriverRequestsBottomSheet(
+            onDismiss = { isRequestsSheetOpen = false }
+        )
     }
 }
 

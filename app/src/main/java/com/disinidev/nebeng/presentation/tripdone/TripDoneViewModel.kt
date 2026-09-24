@@ -3,6 +3,7 @@ package com.disinidev.nebeng.presentation.tripdone
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.disinidev.nebeng.domain.repository.BookingRepository
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.SupabaseClient
@@ -17,7 +18,8 @@ import javax.inject.Inject
 class TripDoneViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val firebaseAuth: FirebaseAuth,
-    private val supabaseClient: SupabaseClient
+    private val supabaseClient: SupabaseClient,
+    private val bookingRepository: BookingRepository
 ) : ViewModel() {
 
     private val bookingId: String = savedStateHandle.get<String>("bookingId") ?: "booking-001"
@@ -39,7 +41,11 @@ class TripDoneViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true) }
             try {
-                // Future enhancement: persist rating & review into Supabase bookings table
+                bookingRepository.rateTrip(
+                    bookingId = bookingId,
+                    rating = _uiState.value.rating,
+                    review = _uiState.value.reviewText
+                )
                 _uiState.update { it.copy(isSubmitting = false, isCompleted = true) }
                 onSuccess()
             } catch (e: Exception) {

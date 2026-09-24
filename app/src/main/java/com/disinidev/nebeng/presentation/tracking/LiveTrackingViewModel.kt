@@ -2,17 +2,34 @@ package com.disinidev.nebeng.presentation.tracking
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.disinidev.nebeng.core.location.LocationClient
+import com.disinidev.nebeng.domain.model.TripLocation
 import com.disinidev.nebeng.domain.model.VehicleType
+import com.disinidev.nebeng.domain.repository.BookingRepository
+import com.disinidev.nebeng.domain.usecase.ObserveDriverLocationUseCase
+import com.disinidev.nebeng.domain.usecase.UpdateDriverLocationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 @HiltViewModel
 class LiveTrackingViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
+    private val bookingRepository: BookingRepository,
+    private val observeDriverLocationUseCase: ObserveDriverLocationUseCase,
+    private val updateDriverLocationUseCase: UpdateDriverLocationUseCase,
+    private val locationClient: LocationClient
 ) : ViewModel() {
 
     private val bookingId: String = savedStateHandle.get<String>("bookingId") ?: "booking_ride_1"
@@ -20,8 +37,168 @@ class LiveTrackingViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(createInitialState(bookingId))
     val uiState: StateFlow<LiveTrackingUiState> = _uiState.asStateFlow()
 
+    private var simulationJob: Job? = null
+    private var observeJob: Job? = null
+
+    init {
+        loadBooking()
+        fetchRealDeviceLocation()
+        startLiveTrackingSimulation()
+        observeDriverLocationStream()
+    }
+
     fun showEmergencyDialog(show: Boolean) {
         _uiState.update { it.copy(isEmergencyDialogOpen = show) }
+    }
+
+    /**
+     * Reads actual device GPS coordinate to ground pickup point accurately if permission is granted.
+     */
+    private fun fetchRealDeviceLocation() {
+        viewModelScope.launch {
+            if (locationClient.hasLocationPermission()) {
+                val loc = locationClient.getCurrentLocation()
+                if (loc != null) {
+                    _uiState.update { current ->
+                        current.copy(
+                            pickupLat = loc.latitude,
+                            pickupLng = loc.longitude,
+                            pickupLocation = loc.addressName ?: current.pickupLocation
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Listens to live location updates for this booking from Supabase trip_locations table.
+     */
+    private fun observeDriverLocationStream() {
+        observeJob?.cancel()
+        observeJob = viewModelScope.launch {
+            observeDriverLocationUseCase(bookingId).collect { tripLoc ->
+                if (tripLoc != null) {
+                    simulationJob?.cancel()
+                    onRemoteDriverLocationReceived(tripLoc)
+                }
+            }
+        }
+    }
+
+    private fun onRemoteDriverLocationReceived(tripLoc: TripLocation) {
+        val pickupLat = _uiState.value.pickupLat
+        val pickupLng = _uiState.value.pickupLng
+        val distMeters = calculateDistanceMeters(tripLoc.lat, tripLoc.lng, pickupLat, pickupLng)
+        val etaMin = maxOf(0, (distMeters / 150))
+        val isArrived = distMeters <= 25
+
+        _uiState.update { current ->
+            current.copy(
+                driverCurrentLat = tripLoc.lat,
+                driverCurrentLng = tripLoc.lng,
+                distanceMeters = distMeters,
+                etaMinutes = etaMin,
+                statusText = if (isArrived) "Driver Telah Tiba di Titik Jemput!" else "Driver Sedang Menjemput",
+                isArrived = isArrived,
+                progress = if (isArrived) 1.0f else (1.0f - (distMeters / 500f).coerceIn(0f, 1f))
+            )
+        }
+    }
+
+    /**
+     * Broadcasts GPS updates and syncs them to Supabase trip_locations table.
+     */
+    fun startLiveTrackingSimulation() {
+        simulationJob?.cancel()
+        simulationJob = viewModelScope.launch {
+            val startLat = -6.2245
+            val startLng = 106.8048
+            val pickupLat = _uiState.value.pickupLat
+            val pickupLng = _uiState.value.pickupLng
+
+            val steps = listOf(
+                TrackingStep(progress = 0.0f, distance = 450, eta = 3, status = "Driver Sedang Menjemput", bearing = 45f),
+                TrackingStep(progress = 0.25f, distance = 340, eta = 3, status = "Driver Sedang Menjemput", bearing = 48f),
+                TrackingStep(progress = 0.55f, distance = 210, eta = 2, status = "Driver Mendekati Titik Jemput", bearing = 40f),
+                TrackingStep(progress = 0.82f, distance = 80, eta = 1, status = "Driver Hampir Sampai (80m)", bearing = 45f),
+                TrackingStep(progress = 1.0f, distance = 0, eta = 0, status = "Driver Telah Tiba di Titik Jemput!", bearing = 45f, isArrived = true)
+            )
+
+            for (step in steps) {
+                delay(3500)
+                val curLat = startLat + (pickupLat - startLat) * step.progress
+                val curLng = startLng + (pickupLng - startLng) * step.progress
+
+                // Sync live position to Supabase trip_locations
+                updateDriverLocationUseCase(bookingId, curLat, curLng)
+
+                _uiState.update { current ->
+                    current.copy(
+                        progress = step.progress,
+                        distanceMeters = step.distance,
+                        etaMinutes = step.eta,
+                        statusText = step.status,
+                        driverBearing = step.bearing,
+                        driverCurrentLat = curLat,
+                        driverCurrentLng = curLng,
+                        isArrived = step.isArrived
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Broadcasts current physical device GPS location to Supabase as driver.
+     */
+    fun broadcastCurrentDeviceGps() {
+        viewModelScope.launch {
+            if (locationClient.hasLocationPermission()) {
+                val loc = locationClient.getCurrentLocation()
+                if (loc != null) {
+                    updateDriverLocationUseCase(bookingId, loc.latitude, loc.longitude)
+                }
+            }
+        }
+    }
+
+    private fun calculateDistanceMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Int {
+        val r = 6371000.0 // Earth radius in meters
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = sin(dLat / 2) * sin(dLat / 2) +
+                cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
+                sin(dLon / 2) * sin(dLon / 2)
+        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return (r * c).toInt()
+    }
+
+    private data class TrackingStep(
+        val progress: Float,
+        val distance: Int,
+        val eta: Int,
+        val status: String,
+        val bearing: Float,
+        val isArrived: Boolean = false
+    )
+
+    private fun loadBooking() {
+        viewModelScope.launch {
+            val result = bookingRepository.getBookingById(bookingId)
+            result.getOrNull()?.let { booking ->
+                val isMotor = booking.vehicleModel.contains("NMAX", ignoreCase = true) || booking.seatPosition == "pillion"
+                _uiState.update { current ->
+                    current.copy(
+                        driverName = booking.driverName,
+                        vehicleModel = booking.vehicleModel,
+                        vehiclePlate = booking.vehiclePlate,
+                        bookingPin = booking.pickupPin,
+                        vehicleType = if (isMotor) VehicleType.MOTORCYCLE else VehicleType.CAR
+                    )
+                }
+            }
+        }
     }
 
     private fun createInitialState(id: String): LiveTrackingUiState {
@@ -56,3 +233,4 @@ class LiveTrackingViewModel @Inject constructor(
         }
     }
 }
+

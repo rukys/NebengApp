@@ -23,12 +23,13 @@ class TripDoneViewModelTest {
 
     private val firebaseAuth = mockk<FirebaseAuth>(relaxed = true)
     private val supabaseClient = mockk<SupabaseClient>(relaxed = true)
+    private val bookingRepository = mockk<com.disinidev.nebeng.domain.repository.BookingRepository>(relaxed = true)
     private val savedStateHandle = SavedStateHandle(mapOf("bookingId" to "booking-123"))
     private lateinit var viewModel: TripDoneViewModel
 
     @Before
     fun setUp() {
-        viewModel = TripDoneViewModel(savedStateHandle, firebaseAuth, supabaseClient)
+        viewModel = TripDoneViewModel(savedStateHandle, firebaseAuth, supabaseClient, bookingRepository)
     }
 
     @Test

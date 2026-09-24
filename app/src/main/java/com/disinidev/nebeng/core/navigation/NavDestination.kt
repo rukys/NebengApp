@@ -57,11 +57,17 @@ sealed interface NavDestination {
     data object EditProfile : NavDestination
 
     @Serializable
+    data object ChangePassword : NavDestination
+
+    @Serializable
     data object Notifications : NavDestination
 
     // Search & Booking Flow
     @Serializable
     data class Search(val vehicleType: String = "car") : NavDestination
+
+    @Serializable
+    data object OfferRide : NavDestination
 
     @Serializable
     data class SearchResults(
