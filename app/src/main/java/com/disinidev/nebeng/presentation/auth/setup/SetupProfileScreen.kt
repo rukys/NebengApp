@@ -1,5 +1,8 @@
 package com.disinidev.nebeng.presentation.auth.setup
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,6 +41,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil3.compose.AsyncImage
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -71,6 +77,19 @@ fun SetupProfileScreen(
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
             onNavigateToNext()
+        }
+    }
+
+    val context = LocalContext.current
+    val photoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            runCatching {
+                context.contentResolver.openInputStream(it)?.use { stream ->
+                    viewModel.uploadAvatar(stream.readBytes())
+                }
+            }
         }
     }
 
@@ -148,12 +167,21 @@ fun SetupProfileScreen(
                             .background(NebengColor.Primary900),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = initials,
-                            color = Color.White,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        if (!uiState.avatarUri.isNullOrBlank()) {
+                            AsyncImage(
+                                model = uiState.avatarUri,
+                                contentDescription = "Foto Profil",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text(
+                                text = initials,
+                                color = Color.White,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
 
                     // Camera Icon Badge
@@ -163,7 +191,7 @@ fun SetupProfileScreen(
                             .clip(CircleShape)
                             .background(Color.White)
                             .border(1.5.dp, NebengColor.Primary900, CircleShape)
-                            .clickable { /* Select Photo */ },
+                            .clickable { photoLauncher.launch("image/*") },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -181,7 +209,8 @@ fun SetupProfileScreen(
                     text = "Ubah Foto Profil",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = NebengColor.Primary900
+                    color = NebengColor.Primary900,
+                    modifier = Modifier.clickable { photoLauncher.launch("image/*") }
                 )
             }
 

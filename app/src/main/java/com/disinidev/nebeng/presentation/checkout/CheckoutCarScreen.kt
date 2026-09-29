@@ -29,9 +29,13 @@ import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,11 +61,20 @@ fun CheckoutCarScreen(
     onConfirmBooking: (rideId: String, seatPosition: String) -> Unit = { _, _ -> }
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
     val ride = state.ride
+
+    LaunchedEffect(state.errorMessage) {
+        state.errorMessage?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearErrorMessage()
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = NebengColor.Primary0,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CheckoutTopBar(
                 title = "Pesan Tebengan Mobil",
@@ -82,13 +95,15 @@ fun CheckoutCarScreen(
                     .padding(horizontal = 20.dp, vertical = 14.dp)
             ) {
                 NebengButton(
-                    text = "Konfirmasi & Nebeng",
+                    text = "Konfirmasi tebengan",
                     trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
                     isLoading = state.isLoading,
                     onClick = {
-                        viewModel.confirmBooking { bookingId ->
-                            onConfirmBooking(bookingId, state.selectedSeat)
-                        }
+                        viewModel.confirmBooking(
+                            onSuccess = { bookingId ->
+                                onConfirmBooking(bookingId, state.selectedSeat)
+                            }
+                        )
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -104,10 +119,10 @@ fun CheckoutCarScreen(
         ) {
             // 1. Driver & Car Card
             DriverVehicleCard(
-                driverName = ride?.driverName ?: "Andi Pratama",
-                vehicleInfo = ride?.vehicleModel ?: "Toyota Avanza Silver • B 1234 ABC",
-                rating = ride?.driverRating ?: 4.9,
-                initials = getInitials(ride?.driverName ?: "Andi Pratama")
+                driverName = ride?.driverName ?: if (state.isLoading) "Memuat pengemudi..." else "Pengemudi",
+                vehicleInfo = ride?.vehicleModel ?: if (state.isLoading) "Memuat kendaraan..." else "-",
+                rating = ride?.driverRating ?: 5.0,
+                initials = if (!ride?.driverName.isNullOrBlank()) getInitials(ride.driverName) else "P"
             )
 
             Spacer(modifier = Modifier.height(16.dp))

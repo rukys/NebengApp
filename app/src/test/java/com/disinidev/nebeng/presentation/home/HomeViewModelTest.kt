@@ -3,13 +3,15 @@ package com.disinidev.nebeng.presentation.home
 import com.disinidev.nebeng.core.component.ServiceType
 import com.disinidev.nebeng.core.location.LocationClient
 import com.disinidev.nebeng.core.location.UserLocation
+import com.disinidev.nebeng.domain.model.Ride
+import com.disinidev.nebeng.domain.model.User
+import com.disinidev.nebeng.domain.model.VehicleInfo
+import com.disinidev.nebeng.domain.model.VehicleType
+import com.disinidev.nebeng.domain.repository.RideRepository
+import com.disinidev.nebeng.domain.repository.UserProfileData
+import com.disinidev.nebeng.domain.repository.UserRepository
 import com.disinidev.nebeng.util.MainDispatcherRule
-import com.google.android.gms.tasks.Tasks
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.messaging.FirebaseMessaging
-import io.github.jan.supabase.SupabaseClient
 import io.mockk.coEvery
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -20,6 +22,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import java.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModelTest {
@@ -27,17 +30,54 @@ class HomeViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val firebaseAuth = mockk<FirebaseAuth>(relaxed = true)
-    private val firebaseMessaging = mockk<FirebaseMessaging>(relaxed = true)
-    private val supabaseClient = mockk<SupabaseClient>(relaxed = true)
+    private val rideRepository = mockk<RideRepository>(relaxed = true)
+    private val userRepository = mockk<UserRepository>(relaxed = true)
     private val locationClient = mockk<LocationClient>(relaxed = true)
     private lateinit var viewModel: HomeViewModel
 
+    private val sampleRide = Ride(
+        id = "ride_1",
+        driverId = "d_1",
+        driver = User(
+            id = "d_1",
+            firebaseUid = "fb_1",
+            fullName = "Andi Pratama",
+            phoneNumber = "08123456789",
+            avatarUrl = null
+        ),
+        vehicleInfo = VehicleInfo(
+            id = "v_1",
+            brand = "Toyota",
+            model = "Avanza Silver",
+            plate = "B 1234 ABC",
+            type = VehicleType.CAR
+        ),
+        maxPassengers = 3,
+        availableSeats = 2,
+        pickupAddress = "Stasiun Tebet",
+        pickupLat = -6.2297,
+        pickupLng = 106.8580,
+        dropoffAddress = "SCBD Sudirman Lot 8",
+        dropoffLat = -6.2250,
+        dropoffLng = 106.8097,
+        departureTime = Instant.now()
+    )
+
     @Before
     fun setUp() {
-        every { firebaseMessaging.token } returns Tasks.forResult("mock_fcm_token_123")
         coEvery { locationClient.getCurrentLocation() } returns null
-        viewModel = HomeViewModel(firebaseAuth, firebaseMessaging, supabaseClient, locationClient)
+        coEvery { userRepository.getCurrentUserName() } returns "Budi Santoso"
+        coEvery { userRepository.getUserProfile() } returns Result.success(
+            UserProfileData(
+                id = "user_123",
+                fullName = "Budi Santoso",
+                phoneNumber = "+62 812-3456-7890",
+                email = "budi.santoso@email.com"
+            )
+        )
+        coEvery { rideRepository.getPopularRides() } returns Result.success(listOf(sampleRide))
+
+        viewModel = HomeViewModel(rideRepository, userRepository, locationClient)
     }
 
     @Test

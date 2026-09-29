@@ -1,10 +1,9 @@
 package com.disinidev.nebeng.presentation.auth.splash
 
 import app.cash.turbine.test
+import com.disinidev.nebeng.domain.repository.AuthRepository
 import com.disinidev.nebeng.domain.repository.UserPreferencesRepository
 import com.disinidev.nebeng.util.MainDispatcherRule
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,15 +19,14 @@ class SplashViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val firebaseAuth = mockk<FirebaseAuth>(relaxed = true)
+    private val authRepository = mockk<AuthRepository>(relaxed = true)
     private val userPreferencesRepository = mockk<UserPreferencesRepository>(relaxed = true)
 
     @Test
     fun `when user is authenticated, navigates to Home`() = runTest {
-        val mockUser = mockk<FirebaseUser>()
-        every { firebaseAuth.currentUser } returns mockUser
+        every { authRepository.isLoggedIn() } returns true
 
-        val viewModel = SplashViewModel(firebaseAuth, userPreferencesRepository)
+        val viewModel = SplashViewModel(authRepository, userPreferencesRepository)
 
         viewModel.uiState.test {
             assertEquals(SplashUiState.Loading, awaitItem())
@@ -39,10 +37,10 @@ class SplashViewModelTest {
 
     @Test
     fun `when user not authenticated but onboarding completed, navigates to Login`() = runTest {
-        every { firebaseAuth.currentUser } returns null
+        every { authRepository.isLoggedIn() } returns false
         every { userPreferencesRepository.isOnboardingCompleted() } returns true
 
-        val viewModel = SplashViewModel(firebaseAuth, userPreferencesRepository)
+        val viewModel = SplashViewModel(authRepository, userPreferencesRepository)
 
         viewModel.uiState.test {
             assertEquals(SplashUiState.Loading, awaitItem())
@@ -53,10 +51,10 @@ class SplashViewModelTest {
 
     @Test
     fun `when user not authenticated and onboarding not completed, navigates to Onboarding`() = runTest {
-        every { firebaseAuth.currentUser } returns null
+        every { authRepository.isLoggedIn() } returns false
         every { userPreferencesRepository.isOnboardingCompleted() } returns false
 
-        val viewModel = SplashViewModel(firebaseAuth, userPreferencesRepository)
+        val viewModel = SplashViewModel(authRepository, userPreferencesRepository)
 
         viewModel.uiState.test {
             assertEquals(SplashUiState.Loading, awaitItem())

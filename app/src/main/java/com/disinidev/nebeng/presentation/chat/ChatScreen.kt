@@ -43,6 +43,7 @@ import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -96,18 +97,35 @@ fun ChatScreen(
             )
         }
     ) { innerPadding ->
-        // Chat messages aligned to the bottom (stacked near input bar)
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            verticalArrangement = Arrangement.Bottom,
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            items(state.messages, key = { it.id }) { message ->
-                ChatBubbleItem(message = message)
-                Spacer(modifier = Modifier.height(10.dp))
+        // Chat messages aligned to the bottom or empty prompt
+        if (state.messages.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Mulai obrolan untuk koordinasi titik jemput dan jadwal tebengan.",
+                    fontSize = 13.sp,
+                    color = NebengColor.Gray600,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                verticalArrangement = Arrangement.Bottom,
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                items(state.messages, key = { it.id }) { message ->
+                    ChatBubbleItem(message = message)
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
             }
         }
     }

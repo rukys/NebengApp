@@ -1,8 +1,12 @@
 package com.disinidev.nebeng.presentation.activity
 
+import com.disinidev.nebeng.domain.repository.BookingActivityItem
+import com.disinidev.nebeng.domain.repository.BookingRepository
+import com.disinidev.nebeng.domain.repository.UserActivities
+import com.disinidev.nebeng.domain.repository.UserRepository
 import com.disinidev.nebeng.util.MainDispatcherRule
-import com.google.firebase.auth.FirebaseAuth
-import io.github.jan.supabase.SupabaseClient
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -10,6 +14,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -21,13 +26,44 @@ class ActivityViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val firebaseAuth = mockk<FirebaseAuth>(relaxed = true)
-    private val supabaseClient = mockk<SupabaseClient>(relaxed = true)
+    private val bookingRepository = mockk<BookingRepository>(relaxed = true)
+    private val userRepository = mockk<UserRepository>(relaxed = true)
     private lateinit var viewModel: ActivityViewModel
 
     @Before
     fun setUp() {
-        viewModel = ActivityViewModel(firebaseAuth, supabaseClient)
+        coEvery { userRepository.getCurrentUserUuid() } returns "user_123"
+        coEvery { bookingRepository.getUserActivities(any()) } returns Result.success(
+            UserActivities(
+                activeTrip = BookingActivityItem(
+                    id = "act-1",
+                    origin = "Lawson Tebet Barat",
+                    destination = "SCBD Pacific Place",
+                    timeText = "Hari ini, 07:30",
+                    vehicleType = "Mobil",
+                    counterpartName = "Andi Pratama",
+                    status = "DIPROSES",
+                    pin = "489 201",
+                    vehicleModel = "Toyota Avanza",
+                    licensePlate = "B 1234 ABC"
+                ),
+                completedTrips = listOf(
+                    BookingActivityItem(
+                        id = "act-2",
+                        origin = "Pancoran",
+                        destination = "Kuningan",
+                        timeText = "Kemarin, 08:30",
+                        vehicleType = "Mobil",
+                        counterpartName = "Budi Hartono",
+                        status = "SELESAI",
+                        vehicleModel = "Daihatsu Xenia",
+                        licensePlate = "B 5678 DEF"
+                    )
+                ),
+                canceledTrips = emptyList()
+            )
+        )
+        viewModel = ActivityViewModel(bookingRepository, userRepository)
     }
 
     @Test
@@ -75,5 +111,34 @@ class ActivityViewModelTest {
         viewModel.toggleSearch(false)
         assertFalse(viewModel.uiState.value.isSearchActive)
         assertEquals("", viewModel.uiState.value.searchQuery)
+    }
+
+    @Test
+    fun `cancelActiveTrip success updates state with success message and refreshes`() = runTest {
+        coEvery { bookingRepository.cancelBooking("act-1") } returns Result.success(Unit)
+
+        viewModel.cancelActiveTrip("act-1")
+        advanceUntilIdle()
+
+        coVerify { bookingRepository.cancelBooking("act-1") }
+        val state = viewModel.uiState.value
+        assertEquals("Tebengan berhasil dibatalkan.", state.successMessage)
+        assertNull(state.errorMessage)
+        assertFalse(state.isCancelling)
+    }
+
+    @Test
+    fun `cancelActiveTrip failure updates state with error message`() = runTest {
+        coEvery { bookingRepository.cancelBooking("act-1") } returns Result.failure(RuntimeException("Network error"))
+
+        viewModel.cancelActiveTrip("act-1")
+        advanceUntilIdle()
+
+        coVerify { bookingRepository.cancelBooking("act-1") }
+        val state = viewModel.uiState.value
+        assertNotNull(state.errorMessage)
+        assertTrue(state.errorMessage!!.contains("Gagal membatalkan tebengan"))
+        assertNull(state.successMessage)
+        assertFalse(state.isCancelling)
     }
 }

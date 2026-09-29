@@ -1,8 +1,8 @@
 package com.disinidev.nebeng.presentation.settings.password
 
+import com.disinidev.nebeng.domain.repository.AuthRepository
 import com.disinidev.nebeng.util.MainDispatcherRule
-import com.google.firebase.auth.FirebaseAuth
-import io.mockk.every
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -20,13 +20,13 @@ class ChangePasswordViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val firebaseAuth = mockk<FirebaseAuth>(relaxed = true)
+    private val authRepository = mockk<AuthRepository>(relaxed = true)
     private lateinit var viewModel: ChangePasswordViewModel
 
     @Before
     fun setUp() {
-        every { firebaseAuth.currentUser } returns null
-        viewModel = ChangePasswordViewModel(firebaseAuth)
+        coEvery { authRepository.changePassword(any(), any()) } returns Result.success(Unit)
+        viewModel = ChangePasswordViewModel(authRepository)
     }
 
     @Test

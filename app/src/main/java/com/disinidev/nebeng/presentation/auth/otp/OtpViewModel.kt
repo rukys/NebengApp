@@ -3,7 +3,7 @@ package com.disinidev.nebeng.presentation.auth.otp
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.auth.FirebaseAuth
+import com.disinidev.nebeng.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -13,9 +13,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 data class OtpUiState(
-    val phoneNumber: String = "+62 812-3456-7890",
+    val phoneNumber: String = "",
     val otpCode: String = "",
     val countdownSeconds: Int = 60,
     val canResend: Boolean = false,
@@ -27,7 +28,7 @@ data class OtpUiState(
 @HiltViewModel
 class OtpViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val firebaseAuth: FirebaseAuth
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(OtpUiState())
@@ -64,10 +65,21 @@ class OtpViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                // Simulasi verifikasi OTP / Firebase Phone Auth
-                delay(1000)
-                _uiState.update { it.copy(isLoading = false, isSuccess = true) }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                val result = authRepository.verifyOtp(state.phoneNumber, state.otpCode)
+                result.fold(
+                    onSuccess = {
+                        _uiState.update { it.copy(isLoading = false, isSuccess = true) }
+                    },
+                    onFailure = { e ->
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = e.localizedMessage ?: "Kode verifikasi salah atau telah kadaluarsa"
+                            )
+                        }
+                    }
+                )
+            } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _uiState.update {
@@ -85,9 +97,21 @@ class OtpViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            delay(800)
-            _uiState.update { it.copy(isLoading = false) }
-            startCountdown()
+            val result = authRepository.resendOtp(_uiState.value.phoneNumber)
+            result.fold(
+                onSuccess = {
+                    _uiState.update { it.copy(isLoading = false) }
+                    startCountdown()
+                },
+                onFailure = { e ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = e.localizedMessage ?: "Gagal mengirim ulang OTP"
+                        )
+                    }
+                }
+            )
         }
     }
 
@@ -105,5 +129,10 @@ class OtpViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        countdownJob?.cancel()
     }
 }

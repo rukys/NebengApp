@@ -1,8 +1,9 @@
 package com.disinidev.nebeng.presentation.profile.edit
 
+import com.disinidev.nebeng.domain.repository.UserProfileData
+import com.disinidev.nebeng.domain.repository.UserRepository
 import com.disinidev.nebeng.util.MainDispatcherRule
-import com.google.firebase.auth.FirebaseAuth
-import io.github.jan.supabase.SupabaseClient
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -20,13 +21,26 @@ class EditProfileViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val firebaseAuth = mockk<FirebaseAuth>(relaxed = true)
-    private val supabaseClient = mockk<SupabaseClient>(relaxed = true)
+    private val userRepository = mockk<UserRepository>(relaxed = true)
     private lateinit var viewModel: EditProfileViewModel
 
     @Before
     fun setUp() {
-        viewModel = EditProfileViewModel(firebaseAuth, supabaseClient)
+        coEvery { userRepository.getCurrentUserUuid() } returns "user_123"
+        coEvery { userRepository.getUserProfile() } returns Result.success(
+            UserProfileData(
+                id = "user_123",
+                fullName = "Budi Santoso",
+                phoneNumber = "+62 812-3456-7890",
+                email = "budi.santoso@email.com",
+                officeAddress = "PT Telkom Indonesia • SCBD Lot 8",
+                bio = "Komuter santai"
+            )
+        )
+        coEvery { userRepository.uploadAvatar(any(), any()) } returns Result.success("https://supabase.co/avatar.jpg")
+        coEvery { userRepository.updateUserProfile(any(), any(), any()) } returns Result.success(Unit)
+
+        viewModel = EditProfileViewModel(userRepository)
     }
 
     @Test

@@ -227,13 +227,17 @@ class LiveTrackingViewModel @Inject constructor(
         viewModelScope.launch {
             val result = bookingRepository.getBookingById(bookingId)
             result.getOrNull()?.let { booking ->
-                val isMotor = booking.vehicleModel.contains("NMAX", ignoreCase = true) || booking.seatPosition == "pillion"
+                val isMotor = booking.vehicleType.equals("motorcycle", ignoreCase = true) ||
+                        booking.vehicleType.equals("motor", ignoreCase = true) ||
+                        booking.seatPosition == "pillion"
                 _uiState.update { current ->
                     current.copy(
-                        driverName = booking.driverName,
-                        vehicleModel = booking.vehicleModel,
-                        vehiclePlate = booking.vehiclePlate,
-                        bookingPin = booking.pickupPin,
+                        driverName = booking.driverName.ifBlank { current.driverName },
+                        vehicleModel = booking.vehicleModel.ifBlank { current.vehicleModel },
+                        vehiclePlate = booking.vehiclePlate.ifBlank { current.vehiclePlate },
+                        bookingPin = booking.pickupPin.ifBlank { current.bookingPin },
+                        pickupLocation = if (booking.pickupAddress.isNotBlank()) "Jemput: ${booking.pickupAddress}" else current.pickupLocation,
+                        destinationLocation = if (booking.dropoffAddress.isNotBlank()) "${booking.dropoffAddress} (Tujuan)" else current.destinationLocation,
                         vehicleType = if (isMotor) VehicleType.MOTORCYCLE else VehicleType.CAR
                     )
                 }
@@ -242,35 +246,19 @@ class LiveTrackingViewModel @Inject constructor(
     }
 
     private fun createInitialState(id: String): LiveTrackingUiState {
-        return if (id.contains("ride_2")) {
-            LiveTrackingUiState(
-                bookingId = id,
-                driverName = "Reza H.",
-                vehicleModel = "Yamaha NMAX Hitam",
-                vehiclePlate = "B 5678 XYZ",
-                vehicleType = VehicleType.MOTORCYCLE,
-                etaMinutes = 2,
-                distanceMeters = 300,
-                pickupLocation = "Jemput: Halte Gelora",
-                destinationLocation = "SCBD Lot 8 (Tujuan)",
-                bookingPin = "215 889",
-                statusText = "Driver Sedang Menjemput"
-            )
-        } else {
-            LiveTrackingUiState(
-                bookingId = id,
-                driverName = "Andi P.",
-                vehicleModel = "Avanza Silver",
-                vehiclePlate = "B 1234 ABC",
-                vehicleType = VehicleType.CAR,
-                etaMinutes = 3,
-                distanceMeters = 450,
-                pickupLocation = "Jemput: Pintu Barat Lawson",
-                destinationLocation = "SCBD Lot 8 (Tujuan)",
-                bookingPin = "489 201",
-                statusText = "Driver Sedang Menjemput"
-            )
-        }
+        return LiveTrackingUiState(
+            bookingId = id,
+            driverName = "Pengemudi",
+            vehicleModel = "",
+            vehiclePlate = "",
+            vehicleType = VehicleType.CAR,
+            etaMinutes = 3,
+            distanceMeters = 450,
+            pickupLocation = "Titik Jemput",
+            destinationLocation = "Titik Tujuan",
+            bookingPin = "",
+            statusText = "Driver Sedang Menjemput"
+        )
     }
 }
 

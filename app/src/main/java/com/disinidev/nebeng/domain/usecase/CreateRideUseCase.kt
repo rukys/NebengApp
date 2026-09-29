@@ -38,6 +38,9 @@ class CreateRideUseCase @Inject constructor(
         if (vehiclePlate.isBlank()) {
             return Result.failure(IllegalArgumentException("Plat nomor kendaraan harus diisi"))
         }
+        if (vehicleModel.isBlank()) {
+            return Result.failure(IllegalArgumentException("Model kendaraan harus diisi"))
+        }
         if (availableSeats <= 0) {
             return Result.failure(IllegalArgumentException("Jumlah kursi harus minimal 1"))
         }
@@ -45,10 +48,12 @@ class CreateRideUseCase @Inject constructor(
         val driverUuid = userRepository.getCurrentUserUuid()
         val isoDepartureTime = parseDepartureTimeToIso(departureTime)
 
+        val resolvedBrand = vehicleBrand.ifBlank { vehicleModel.split(" ").firstOrNull()?.takeIf { it.isNotBlank() } ?: "-" }
+
         val request = CreateRideRequest(
             driverId = driverUuid,
-            vehicleBrand = vehicleBrand.ifBlank { "Toyota" },
-            vehicleModel = vehicleModel.ifBlank { if (vehicleType == "motorcycle") "Yamaha NMAX" else "Avanza" },
+            vehicleBrand = resolvedBrand,
+            vehicleModel = vehicleModel,
             vehiclePlate = vehiclePlate.uppercase(),
             vehicleType = vehicleType,
             maxPassengers = availableSeats,

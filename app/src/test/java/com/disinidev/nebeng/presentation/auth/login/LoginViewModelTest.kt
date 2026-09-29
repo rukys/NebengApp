@@ -1,12 +1,8 @@
 package com.disinidev.nebeng.presentation.auth.login
 
+import com.disinidev.nebeng.domain.repository.AuthRepository
 import com.disinidev.nebeng.util.MainDispatcherRule
-import com.google.android.gms.tasks.Tasks
-import com.google.firebase.auth.AuthResult
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
-import io.github.jan.supabase.SupabaseClient
-import io.mockk.every
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -24,20 +20,14 @@ class LoginViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val firebaseAuth = mockk<FirebaseAuth>(relaxed = true)
-    private val supabaseClient = mockk<SupabaseClient>(relaxed = true)
+    private val authRepository = mockk<AuthRepository>(relaxed = true)
     private lateinit var viewModel: LoginViewModel
 
     @Before
     fun setUp() {
-        val authResult = mockk<AuthResult>(relaxed = true)
-        val mockUser = mockk<FirebaseUser>(relaxed = true)
-        every { mockUser.uid } returns "uid_login_123"
-        every { authResult.user } returns mockUser
-        every { firebaseAuth.signInWithEmailAndPassword(any(), any()) } returns Tasks.forResult(authResult)
-        every { firebaseAuth.signInWithCredential(any()) } returns Tasks.forResult(authResult)
-
-        viewModel = LoginViewModel(firebaseAuth, supabaseClient)
+        coEvery { authRepository.loginWithEmail(any(), any()) } returns Result.success(Unit)
+        coEvery { authRepository.loginWithGoogle(any()) } returns Result.success(Unit)
+        viewModel = LoginViewModel(authRepository)
     }
 
     @Test

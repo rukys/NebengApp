@@ -26,12 +26,23 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.DirectionsCar
-import androidx.compose.material.icons.outlined.HelpOutline
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.TwoWheeler
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.text.TextStyle
+import com.disinidev.nebeng.domain.model.VehicleInfo
+import com.disinidev.nebeng.domain.model.VehicleType
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -56,6 +67,7 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -73,6 +85,7 @@ fun ProfileScreen(
     modifier: Modifier = Modifier,
     onNavigateToSettings: () -> Unit = {},
     onNavigateToEditProfile: () -> Unit = {},
+    onLogoutSuccess: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -163,7 +176,7 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 ProfileMenuItem(
-                    icon = Icons.Outlined.HelpOutline,
+                    icon = Icons.AutoMirrored.Outlined.HelpOutline,
                     title = "Pusat Bantuan & FAQ",
                     onClick = { showFaqSheet = true }
                 )
@@ -193,7 +206,7 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 ProfileMenuItem(
-                    icon = Icons.Outlined.HelpOutline,
+                    icon = Icons.AutoMirrored.Outlined.HelpOutline,
                     title = "Pusat Bantuan & FAQ",
                     onClick = { showFaqSheet = true }
                 )
@@ -213,11 +226,20 @@ fun ProfileScreen(
     }
 
     if (showVehicleSheet) {
-        VehicleBottomSheet(onDismiss = { showVehicleSheet = false })
+        VehicleBottomSheet(
+            vehicles = state.vehicles,
+            isAdding = state.isAddingVehicle,
+            onAddVehicle = viewModel::addVehicle,
+            onDeleteVehicle = viewModel::deleteVehicle,
+            onDismiss = { showVehicleSheet = false }
+        )
     }
 
     if (showScheduleSheet) {
-        ScheduleBottomSheet(onDismiss = { showScheduleSheet = false })
+        ScheduleBottomSheet(
+            vehicles = state.vehicles,
+            onDismiss = { showScheduleSheet = false }
+        )
     }
 
     if (showSettingsSheet) {
@@ -225,7 +247,7 @@ fun ProfileScreen(
             onDismiss = { showSettingsSheet = false },
             onLogout = {
                 showSettingsSheet = false
-                viewModel.showMessage("Fitur logout akan dialihkan ke layar Auth")
+                viewModel.logout(onLogoutSuccess)
             }
         )
     }
@@ -692,11 +714,19 @@ private fun EmergencyContactItem(
     number: String,
     tag: String
 ) {
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(NebengColor.Primary50)
+            .clickable {
+                runCatching {
+                    val cleanNumber = number.replace(" ", "").replace("-", "")
+                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$cleanNumber"))
+                    context.startActivity(intent)
+                }
+            }
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -748,7 +778,7 @@ private fun FaqBottomSheet(onDismiss: () -> Unit) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Outlined.HelpOutline,
+                    imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
                     contentDescription = null,
                     tint = NebengColor.Primary900,
                     modifier = Modifier.size(24.dp)
@@ -824,7 +854,21 @@ private fun FaqItem(question: String, answer: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun VehicleBottomSheet(onDismiss: () -> Unit) {
+private fun VehicleBottomSheet(
+    vehicles: List<VehicleInfo>,
+    isAdding: Boolean,
+    onAddVehicle: (brand: String, model: String, plate: String, type: VehicleType, color: String?, year: Int?) -> Unit,
+    onDeleteVehicle: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var isFormVisible by remember { mutableStateOf(false) }
+    var selectedType by remember { mutableStateOf(VehicleType.CAR) }
+    var brand by remember { mutableStateOf("") }
+    var model by remember { mutableStateOf("") }
+    var plate by remember { mutableStateOf("") }
+    var color by remember { mutableStateOf("") }
+    var yearText by remember { mutableStateOf("") }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -834,53 +878,339 @@ private fun VehicleBottomSheet(onDismiss: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 12.dp)
+                .verticalScroll(rememberScrollState())
         ) {
-            Text(
-                text = "Kendaraan Saya",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = NebengColor.Primary900
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Kendaraan Saya",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NebengColor.Primary900
+                )
+
+                if (!isFormVisible) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(NebengColor.Primary50)
+                            .clickable { isFormVisible = true }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Add,
+                            contentDescription = "Tambah",
+                            tint = NebengColor.Primary900,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Tambah",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = NebengColor.Primary900
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(NebengColor.Primary50)
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.DirectionsCar,
-                    contentDescription = null,
-                    tint = NebengColor.Primary900,
-                    modifier = Modifier.size(28.dp)
-                )
-                Spacer(modifier = Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
+            if (vehicles.isEmpty() && !isFormVisible) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.DirectionsCar,
+                        contentDescription = null,
+                        tint = NebengColor.Gray400,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Toyota Avanza Silver",
+                        text = "Belum Ada Kendaraan",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = NebengColor.Primary900
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "B 1234 ABC • Kapasitas 4 Penumpang",
-                        fontSize = 12.sp,
-                        color = NebengColor.Gray600
+                        text = "Daftarkan mobil atau motor Anda untuk mulai memberi tebengan.",
+                        fontSize = 13.sp,
+                        color = NebengColor.Gray600,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
+                }
+            } else {
+                vehicles.forEach { vehicle ->
+                    val isCar = vehicle.type == VehicleType.CAR
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 10.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(NebengColor.Primary50)
+                            .border(1.dp, NebengColor.Gray200, RoundedCornerShape(12.dp))
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(NebengColor.Primary0),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isCar) Icons.Outlined.DirectionsCar else Icons.Outlined.TwoWheeler,
+                                contentDescription = null,
+                                tint = NebengColor.Primary900,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "${vehicle.brand} ${vehicle.model}",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NebengColor.Primary900
+                                )
+                                if (vehicle.isVerified) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Icon(
+                                        imageVector = Icons.Outlined.CheckCircle,
+                                        contentDescription = "Verified",
+                                        tint = NebengColor.Success700,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            val details = listOfNotNull(
+                                vehicle.plate,
+                                vehicle.color?.ifBlank { null },
+                                vehicle.year?.toString()
+                            ).joinToString(" • ")
+                            Text(
+                                text = details,
+                                fontSize = 12.sp,
+                                color = NebengColor.Gray600
+                            )
+                        }
+
+                        if (vehicle.id != null) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .clickable { onDeleteVehicle(vehicle.id) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.DeleteOutline,
+                                    contentDescription = "Hapus",
+                                    tint = NebengColor.Gray600,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            if (isFormVisible) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(NebengColor.Primary50)
+                        .border(1.dp, NebengColor.Gray200, RoundedCornerShape(14.dp))
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = "Tambah Kendaraan Baru",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NebengColor.Primary900
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val carSelected = selectedType == VehicleType.CAR
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (carSelected) NebengColor.Primary900 else NebengColor.Primary0)
+                                .border(1.dp, if (carSelected) NebengColor.Primary900 else NebengColor.Gray200, RoundedCornerShape(8.dp))
+                                .clickable { selectedType = VehicleType.CAR }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Mobil",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (carSelected) NebengColor.Primary0 else NebengColor.Primary900
+                            )
+                        }
+
+                        val motoSelected = selectedType == VehicleType.MOTORCYCLE
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (motoSelected) NebengColor.Primary900 else NebengColor.Primary0)
+                                .border(1.dp, if (motoSelected) NebengColor.Primary900 else NebengColor.Gray200, RoundedCornerShape(8.dp))
+                                .clickable { selectedType = VehicleType.MOTORCYCLE }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Motor",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (motoSelected) NebengColor.Primary0 else NebengColor.Primary900
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "Merk", fontSize = 11.sp, color = NebengColor.Gray600)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            BasicTextField(
+                                value = brand,
+                                onValueChange = { brand = it },
+                                textStyle = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = NebengColor.Primary900),
+                                singleLine = true,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(NebengColor.Primary0)
+                                    .border(1.dp, NebengColor.Gray200, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "Model", fontSize = 11.sp, color = NebengColor.Gray600)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            BasicTextField(
+                                value = model,
+                                onValueChange = { model = it },
+                                textStyle = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = NebengColor.Primary900),
+                                singleLine = true,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(NebengColor.Primary0)
+                                    .border(1.dp, NebengColor.Gray200, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "Plat Nomor", fontSize = 11.sp, color = NebengColor.Gray600)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            BasicTextField(
+                                value = plate,
+                                onValueChange = { plate = it },
+                                textStyle = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = NebengColor.Primary900),
+                                singleLine = true,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(NebengColor.Primary0)
+                                    .border(1.dp, NebengColor.Gray200, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "Warna", fontSize = 11.sp, color = NebengColor.Gray600)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            BasicTextField(
+                                value = color,
+                                onValueChange = { color = it },
+                                textStyle = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = NebengColor.Primary900),
+                                singleLine = true,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(NebengColor.Primary0)
+                                    .border(1.dp, NebengColor.Gray200, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        NebengButton(
+                            text = "Batal",
+                            onClick = { isFormVisible = false },
+                            style = NebengButtonStyle.SECONDARY,
+                            modifier = Modifier.weight(1f)
+                        )
+                        NebengButton(
+                            text = if (isAdding) "Menyimpan..." else "Simpan",
+                            onClick = {
+                                if (brand.isNotBlank() && model.isNotBlank() && plate.isNotBlank()) {
+                                    val year = yearText.toIntOrNull()
+                                    onAddVehicle(brand, model, plate, selectedType, color.ifBlank { null }, year)
+                                    isFormVisible = false
+                                    brand = ""
+                                    model = ""
+                                    plate = ""
+                                    color = ""
+                                    yearText = ""
+                                }
+                            },
+                            enabled = !isAdding && brand.isNotBlank() && model.isNotBlank() && plate.isNotBlank(),
+                            style = NebengButtonStyle.PRIMARY,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             NebengButton(
                 text = "Tutup",
                 onClick = onDismiss,
-                style = NebengButtonStyle.PRIMARY,
+                style = NebengButtonStyle.SECONDARY,
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -891,7 +1221,10 @@ private fun VehicleBottomSheet(onDismiss: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ScheduleBottomSheet(onDismiss: () -> Unit) {
+private fun ScheduleBottomSheet(
+    vehicles: List<VehicleInfo>,
+    onDismiss: () -> Unit
+) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -911,31 +1244,57 @@ private fun ScheduleBottomSheet(onDismiss: () -> Unit) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(NebengColor.Primary50)
-                    .padding(16.dp)
-            ) {
-                Text(
-                    text = "Senin – Jumat, 07:00 WIB",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NebengColor.Primary900
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "📍 Tebet, Jaksel ➔ SCBD Lot 8",
-                    fontSize = 13.sp,
-                    color = NebengColor.Gray800
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "3 Kursi Tersedia • Toyota Avanza Silver",
-                    fontSize = 12.sp,
-                    color = NebengColor.Gray600
-                )
+            if (vehicles.isNotEmpty()) {
+                val primaryVehicle = vehicles.first()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(NebengColor.Primary50)
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = "Senin – Jumat, 07:00 WIB",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NebengColor.Primary900
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Rute Harian Komuter",
+                        fontSize = 13.sp,
+                        color = NebengColor.Gray800
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "${primaryVehicle.brand} ${primaryVehicle.model} (${primaryVehicle.plate})",
+                        fontSize = 12.sp,
+                        color = NebengColor.Gray600
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(NebengColor.Gray100)
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Belum Ada Jadwal Rutin",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = NebengColor.Gray800
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Atur jadwal tebengan rutin atau daftarkan kendaraan Anda.",
+                        fontSize = 12.sp,
+                        color = NebengColor.Gray600,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))

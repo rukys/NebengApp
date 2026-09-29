@@ -1,8 +1,9 @@
 package com.disinidev.nebeng.presentation.auth.otp
 
 import androidx.lifecycle.SavedStateHandle
+import com.disinidev.nebeng.domain.repository.AuthRepository
 import com.disinidev.nebeng.util.MainDispatcherRule
-import com.google.firebase.auth.FirebaseAuth
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -21,14 +22,16 @@ class OtpViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val firebaseAuth = mockk<FirebaseAuth>(relaxed = true)
+    private val authRepository = mockk<AuthRepository>(relaxed = true)
     private lateinit var savedStateHandle: SavedStateHandle
     private lateinit var viewModel: OtpViewModel
 
     @Before
     fun setUp() {
+        coEvery { authRepository.verifyOtp(any(), any()) } returns Result.success(Unit)
+        coEvery { authRepository.resendOtp(any()) } returns Result.success(Unit)
         savedStateHandle = SavedStateHandle(mapOf("phoneNumber" to "+62 812-3456-7890"))
-        viewModel = OtpViewModel(savedStateHandle, firebaseAuth)
+        viewModel = OtpViewModel(savedStateHandle, authRepository)
     }
 
     @Test

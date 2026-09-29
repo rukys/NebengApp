@@ -65,7 +65,7 @@ fun LiveTrackingScreen(
     modifier: Modifier = Modifier,
     viewModel: LiveTrackingViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit = {},
-    onNavigateToChat: (driverName: String, bookingId: String) -> Unit = { _, _ -> },
+    onNavigateToChat: (driverName: String, bookingId: String, vehicleInfo: String, pin: String) -> Unit = { _, _, _, _ -> },
     onTripFinished: (bookingId: String) -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -296,7 +296,11 @@ fun LiveTrackingScreen(
                                 if (state.isArrived) {
                                     onTripFinished(state.bookingId)
                                 } else {
-                                    onNavigateToChat(state.driverName, state.bookingId)
+                                    val vehicle = listOfNotNull(state.vehicleModel, state.vehiclePlate)
+                                        .filter { it.isNotBlank() }
+                                        .joinToString(" • ")
+                                        .ifBlank { "Kendaraan" }
+                                    onNavigateToChat(state.driverName, state.bookingId, vehicle, state.bookingPin)
                                 }
                             },
                         contentAlignment = Alignment.Center

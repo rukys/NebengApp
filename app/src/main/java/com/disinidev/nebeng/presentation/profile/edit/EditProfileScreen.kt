@@ -1,5 +1,8 @@
 package com.disinidev.nebeng.presentation.profile.edit
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,11 +46,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil3.compose.AsyncImage
 import com.disinidev.nebeng.core.component.NebengButton
 import com.disinidev.nebeng.core.component.NebengButtonStyle
 import com.disinidev.nebeng.core.designsystem.NebengColor
@@ -60,6 +66,19 @@ fun EditProfileScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+
+    val photoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            runCatching {
+                context.contentResolver.openInputStream(it)?.use { stream ->
+                    viewModel.uploadAvatar(stream.readBytes())
+                }
+            }
+        }
+    }
 
     LaunchedEffect(state.message) {
         state.message?.let {
@@ -128,12 +147,21 @@ fun EditProfileScreen(
                             .background(NebengColor.Primary900),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = state.avatarInitials,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = NebengColor.Primary0
-                        )
+                        if (!state.avatarUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = state.avatarUrl,
+                                contentDescription = "Foto Profil",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text(
+                                text = state.avatarInitials,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NebengColor.Primary0
+                            )
+                        }
                     }
 
                     // Camera button overlay at bottom
@@ -145,7 +173,7 @@ fun EditProfileScreen(
                             .clip(CircleShape)
                             .background(NebengColor.Primary0)
                             .border(1.5.dp, NebengColor.Primary900, CircleShape)
-                            .clickable { viewModel.showMessage("Pilih foto dari galeri") },
+                            .clickable { photoLauncher.launch("image/*") },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -164,7 +192,7 @@ fun EditProfileScreen(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = NebengColor.Primary900,
-                    modifier = Modifier.clickable { viewModel.showMessage("Pilih foto dari galeri") }
+                    modifier = Modifier.clickable { photoLauncher.launch("image/*") }
                 )
             }
 

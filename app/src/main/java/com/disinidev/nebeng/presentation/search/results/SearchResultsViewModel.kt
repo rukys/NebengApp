@@ -19,17 +19,17 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SearchResultsUiState(
-    val pickupAddress: String = "Stasiun Tebet (Pintu Barat)",
-    val dropoffAddress: String = "SCBD Sudirman (Lot 8 & Pasific)",
-    val departureTime: String = "Hari Ini, 07:30",
+    val pickupAddress: String = "",
+    val dropoffAddress: String = "",
+    val departureTime: String = "",
     val selectedFilterTab: VehicleFilter = VehicleFilter.ALL,
     val activeFilterOptions: SearchFilterOptions = SearchFilterOptions(),
     val draftFilterOptions: SearchFilterOptions = SearchFilterOptions(),
     val allRides: List<RideItemUi> = emptyList(),
     val displayedRides: List<RideItemUi> = emptyList(),
-    val totalCount: Int = 18,
-    val carCount: Int = 12,
-    val motorCount: Int = 6,
+    val totalCount: Int = 0,
+    val carCount: Int = 0,
+    val motorCount: Int = 0,
     val isFilterSheetOpen: Boolean = false,
     val isLoading: Boolean = false
 )
@@ -40,9 +40,9 @@ class SearchResultsViewModel @Inject constructor(
     private val searchRidesUseCase: SearchRidesUseCase
 ) : ViewModel() {
 
-    private val navPickup: String = savedStateHandle.get<String>("pickupAddress") ?: "Stasiun Tebet (Pintu Barat)"
-    private val navDropoff: String = savedStateHandle.get<String>("dropoffAddress") ?: "SCBD Sudirman (Lot 8 & Pasific)"
-    private val navDepartureTime: String = savedStateHandle.get<String>("departureTime") ?: "Hari Ini, 07:30"
+    private val navPickup: String = savedStateHandle.get<String>("pickupAddress") ?: ""
+    private val navDropoff: String = savedStateHandle.get<String>("dropoffAddress") ?: ""
+    private val navDepartureTime: String = savedStateHandle.get<String>("departureTime") ?: ""
     private val navVehicleType: String = savedStateHandle.get<String>("vehicleType") ?: "all"
     private val navPickupLat: Double = savedStateHandle.get<Double>("pickupLat") ?: -6.2297
     private val navPickupLng: Double = savedStateHandle.get<Double>("pickupLng") ?: 106.8580
@@ -59,7 +59,7 @@ class SearchResultsViewModel @Inject constructor(
             dropoffAddress = navDropoff,
             departureTime = navDepartureTime,
             selectedFilterTab = initialTab,
-            allRides = createMockRides()
+            allRides = emptyList()
         )
     )
     val uiState: StateFlow<SearchResultsUiState> = _uiState.asStateFlow()
@@ -81,26 +81,24 @@ class SearchResultsViewModel @Inject constructor(
 
             result.fold(
                 onSuccess = { rides ->
-                    val finalRides = if (rides.isNotEmpty()) rides else createMockRides()
                     _uiState.update {
                         it.copy(
-                            allRides = finalRides,
-                            totalCount = finalRides.size,
-                            carCount = finalRides.count { r -> r.vehicleType == VehicleType.CAR },
-                            motorCount = finalRides.count { r -> r.vehicleType == VehicleType.MOTORCYCLE },
+                            allRides = rides,
+                            totalCount = rides.size,
+                            carCount = rides.count { r -> r.vehicleType == VehicleType.CAR },
+                            motorCount = rides.count { r -> r.vehicleType == VehicleType.MOTORCYCLE },
                             isLoading = false
                         )
                     }
                     applyFilters()
                 },
                 onFailure = {
-                    val fallback = createMockRides()
                     _uiState.update {
                         it.copy(
-                            allRides = fallback,
-                            totalCount = fallback.size,
-                            carCount = fallback.count { r -> r.vehicleType == VehicleType.CAR },
-                            motorCount = fallback.count { r -> r.vehicleType == VehicleType.MOTORCYCLE },
+                            allRides = emptyList(),
+                            totalCount = 0,
+                            carCount = 0,
+                            motorCount = 0,
                             isLoading = false
                         )
                     }
@@ -207,94 +205,5 @@ class SearchResultsViewModel @Inject constructor(
                 motorCount = motorCount
             )
         }
-    }
-
-    private fun createMockRides(): List<RideItemUi> {
-        return listOf(
-            RideItemUi(
-                id = "ride_1",
-                driverName = "Andi Pratama",
-                driverGender = DriverGender.MALE,
-                vehicleModel = "Avanza",
-                vehicleType = VehicleType.CAR,
-                departureTimeFormatted = "07:30 WIB",
-                arrivalTimeFormatted = "07:55",
-                availableSeats = 2,
-                availableSeatsText = "Sisa 2 kursi",
-                facilities = listOf("Sisa 2 kursi", "AC Dingin", "Non-Smoking"),
-                driverRating = 4.9,
-                totalTrips = 120
-            ),
-            RideItemUi(
-                id = "ride_2",
-                driverName = "Reza Hendra",
-                driverGender = DriverGender.MALE,
-                vehicleModel = "NMAX",
-                vehicleType = VehicleType.MOTORCYCLE,
-                departureTimeFormatted = "07:45 WIB",
-                arrivalTimeFormatted = "08:05",
-                availableSeats = 1,
-                availableSeatsText = "1 slot",
-                facilities = listOf("1 slot", "Helm SNI & Jas Hujan"),
-                driverRating = 4.8,
-                totalTrips = 85
-            ),
-            RideItemUi(
-                id = "ride_3",
-                driverName = "Bambang S.",
-                driverGender = DriverGender.MALE,
-                vehicleModel = "Innova",
-                vehicleType = VehicleType.CAR,
-                departureTimeFormatted = "08:00 WIB",
-                arrivalTimeFormatted = "08:25",
-                availableSeats = 3,
-                availableSeatsText = "Sisa 3 kursi",
-                facilities = listOf("Sisa 3 kursi", "Bagasi Luas"),
-                driverRating = 4.9,
-                totalTrips = 210
-            ),
-            RideItemUi(
-                id = "ride_4",
-                driverName = "Dian Sastrowardoyo",
-                driverGender = DriverGender.FEMALE,
-                vehicleModel = "Yaris Cross",
-                vehicleType = VehicleType.CAR,
-                departureTimeFormatted = "08:15 WIB",
-                arrivalTimeFormatted = "08:40",
-                availableSeats = 2,
-                availableSeatsText = "Sisa 2 kursi",
-                facilities = listOf("Sisa 2 kursi", "AC Dingin", "Music on Request"),
-                driverRating = 5.0,
-                totalTrips = 64
-            ),
-            RideItemUi(
-                id = "ride_5",
-                driverName = "Siti Rahmawati",
-                driverGender = DriverGender.FEMALE,
-                vehicleModel = "Scoopy",
-                vehicleType = VehicleType.MOTORCYCLE,
-                departureTimeFormatted = "08:20 WIB",
-                arrivalTimeFormatted = "08:42",
-                availableSeats = 1,
-                availableSeatsText = "1 slot",
-                facilities = listOf("1 slot", "Helm Bersih & Wangi"),
-                driverRating = 4.9,
-                totalTrips = 140
-            ),
-            RideItemUi(
-                id = "ride_6",
-                driverName = "Hendra Gunawan",
-                driverGender = DriverGender.MALE,
-                vehicleModel = "Sigra",
-                vehicleType = VehicleType.CAR,
-                departureTimeFormatted = "08:30 WIB",
-                arrivalTimeFormatted = "08:55",
-                availableSeats = 3,
-                availableSeatsText = "Sisa 3 kursi",
-                facilities = listOf("Sisa 3 kursi", "Non-Smoking"),
-                driverRating = 4.8,
-                totalTrips = 98
-            )
-        )
     }
 }

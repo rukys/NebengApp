@@ -1,11 +1,11 @@
 package com.disinidev.nebeng.presentation.settings
 
 data class SettingsUiState(
-    val fullName: String = "Budi Santoso",
-    val email: String = "budi.santoso@email.com",
-    val avatarInitials: String = "BS",
-    val isVerified: Boolean = true,
-    val isDocumentVerified: Boolean = true,
+    val fullName: String = "",
+    val email: String = "",
+    val avatarInitials: String = "",
+    val isVerified: Boolean = false,
+    val isDocumentVerified: Boolean = false,
     val selectedLanguage: String = "Bahasa Indonesia",
     val isNotificationEnabled: Boolean = true,
     val showLogoutDialog: Boolean = false,

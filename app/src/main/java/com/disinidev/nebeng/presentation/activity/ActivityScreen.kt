@@ -25,11 +25,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.disinidev.nebeng.core.component.NebengBottomNav
 import com.disinidev.nebeng.core.component.NebengButton
+import com.disinidev.nebeng.core.component.NebengButtonSize
 import com.disinidev.nebeng.core.component.NebengButtonStyle
 import com.disinidev.nebeng.core.component.NebengTab
 import com.disinidev.nebeng.core.designsystem.NebengColor
@@ -62,10 +67,24 @@ fun ActivityScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var isRequestsSheetOpen by remember { mutableStateOf(false) }
+    var bookingToCancel by remember { mutableStateOf<String?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.errorMessage, state.successMessage) {
+        state.errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearMessages()
+        }
+        state.successMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearMessages()
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = NebengColor.Primary0,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             ActivityTopBar(
                 isSearchActive = state.isSearchActive,
@@ -97,6 +116,9 @@ fun ActivityScreen(
                 Spacer(modifier = Modifier.height(4.dp))
                 ActivityFilterChips(
                     selectedFilter = state.selectedFilter,
+                    activeCount = if (state.activeTrip != null) 1 else 0,
+                    completedCount = state.completedTrips.size,
+                    canceledCount = state.canceledTrips.size,
                     onFilterSelected = viewModel::onFilterSelected
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -136,13 +158,13 @@ fun ActivityScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Permintaan Penumpang Masuk",
+                                    text = "Permintaan tebengan masuk",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = NebengColor.Primary900
                                 )
                                 Text(
-                                    text = "Review & konfirmasi calon penumpang",
+                                    text = "Tinjau dan tanggapi calon tebengan",
                                     fontSize = 11.sp,
                                     color = NebengColor.Gray600
                                 )
@@ -163,8 +185,13 @@ fun ActivityScreen(
                     if (activeTrip != null) {
                         ActiveTripCard(
                             activeTrip = activeTrip,
-                            onTrackClick = { onNavigateToLiveTracking(activeTrip.bookingId) }
+                            onTrackClick = { onNavigateToLiveTracking(activeTrip.bookingId) },
+                            onCancelClick = { bookingToCancel = activeTrip.bookingId },
+                            isCancelling = state.isCancelling
                         )
+                        Spacer(modifier = Modifier.height(24.dp))
+                    } else {
+                        EmptyOngoingTripCard()
                         Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
@@ -189,12 +216,18 @@ fun ActivityScreen(
                             it.destination.contains(state.searchQuery, ignoreCase = true)
                 }
 
-                items(filteredTrips) { trip ->
-                    CompletedTripCard(
-                        trip = trip,
-                        onClick = { onNavigateToTripDone(trip.id) }
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
+                if (filteredTrips.isEmpty()) {
+                    item {
+                        EmptyActivityState(message = "Belum ada tebengan yang selesai")
+                    }
+                } else {
+                    items(filteredTrips) { trip ->
+                        CompletedTripCard(
+                            trip = trip,
+                            onClick = { onNavigateToTripDone(trip.id) }
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
                 }
             }
 
@@ -208,7 +241,7 @@ fun ActivityScreen(
 
                 if (filteredCanceled.isEmpty()) {
                     item {
-                        EmptyActivityState(message = "Tidak ada perjalanan yang dibatalkan")
+                        EmptyActivityState(message = "Tidak ada tebengan yang dibatalkan")
                     }
                 } else {
                     items(filteredCanceled) { trip ->
@@ -227,6 +260,51 @@ fun ActivityScreen(
     if (isRequestsSheetOpen) {
         DriverRequestsBottomSheet(
             onDismiss = { isRequestsSheetOpen = false }
+        )
+    }
+
+    val tripToCancel = bookingToCancel
+    if (tripToCancel != null) {
+        AlertDialog(
+            onDismissRequest = { bookingToCancel = null },
+            title = {
+                Text(
+                    text = "Batalkan tebengan ini?",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NebengColor.Primary900
+                )
+            },
+            text = {
+                Text(
+                    text = "Kursi kamu akan diberikan ke penumpang lain. Tindakan ini tidak dapat dibatalkan.",
+                    fontSize = 13.sp,
+                    color = NebengColor.Gray600
+                )
+            },
+            confirmButton = {
+                NebengButton(
+                    text = "Ya, batalkan",
+                    onClick = {
+                        bookingToCancel = null
+                        viewModel.cancelActiveTrip(tripToCancel)
+                    },
+                    style = NebengButtonStyle.DANGER,
+                    size = NebengButtonSize.SMALL,
+                    isFullWidth = false
+                )
+            },
+            dismissButton = {
+                NebengButton(
+                    text = "Tetap nebeng",
+                    onClick = { bookingToCancel = null },
+                    style = NebengButtonStyle.SECONDARY,
+                    size = NebengButtonSize.SMALL,
+                    isFullWidth = false
+                )
+            },
+            containerColor = NebengColor.Primary0,
+            shape = RoundedCornerShape(16.dp)
         )
     }
 }
@@ -329,6 +407,9 @@ private fun ActivityTopBar(
 @Composable
 private fun ActivityFilterChips(
     selectedFilter: ActivityFilter,
+    activeCount: Int,
+    completedCount: Int,
+    canceledCount: Int,
     onFilterSelected: (ActivityFilter) -> Unit
 ) {
     LazyRow(
@@ -339,6 +420,11 @@ private fun ActivityFilterChips(
             val isSelected = filter == selectedFilter
             val bg = if (isSelected) NebengColor.Primary900 else NebengColor.Primary50
             val textColor = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900
+            val label = when (filter) {
+                ActivityFilter.ONGOING -> "Berjalan ($activeCount)"
+                ActivityFilter.COMPLETED -> "Selesai ($completedCount)"
+                ActivityFilter.CANCELED -> "Dibatalkan ($canceledCount)"
+            }
 
             Box(
                 modifier = Modifier
@@ -349,7 +435,7 @@ private fun ActivityFilterChips(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = filter.label,
+                    text = label,
                     fontSize = 12.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                     color = textColor
@@ -360,9 +446,41 @@ private fun ActivityFilterChips(
 }
 
 @Composable
+private fun EmptyOngoingTripCard(
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(NebengRadius.Lg))
+            .background(NebengColor.Primary50)
+            .border(1.dp, NebengColor.Gray200, RoundedCornerShape(NebengRadius.Lg))
+            .padding(vertical = 24.dp, horizontal = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "Belum ada tebengan aktif",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = NebengColor.Primary900
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Cari tebengan untuk memulai perjalanan bareng rekan kantormu",
+                fontSize = 12.sp,
+                color = NebengColor.Gray600
+            )
+        }
+    }
+}
+
+@Composable
 private fun ActiveTripCard(
     activeTrip: ActiveTrip,
     onTrackClick: () -> Unit,
+    onCancelClick: () -> Unit,
+    isCancelling: Boolean,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -437,6 +555,18 @@ private fun ActiveTripCard(
             onClick = onTrackClick,
             style = NebengButtonStyle.PRIMARY,
             trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Cancel Button (UX Writing: sentence case, active imperative)
+        NebengButton(
+            text = if (isCancelling) "Membatalkan tebengan..." else "Batalkan tebengan",
+            onClick = onCancelClick,
+            enabled = !isCancelling,
+            isLoading = isCancelling,
+            style = NebengButtonStyle.SECONDARY,
             modifier = Modifier.fillMaxWidth()
         )
     }

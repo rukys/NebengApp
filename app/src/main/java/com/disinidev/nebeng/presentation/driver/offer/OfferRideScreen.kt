@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,11 +19,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import com.disinidev.nebeng.domain.model.VehicleType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -38,6 +42,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +69,10 @@ fun OfferRideScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadSavedVehicles()
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -136,7 +145,9 @@ fun OfferRideScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 VehicleTypeOption(
@@ -145,15 +156,19 @@ fun OfferRideScreen(
                     icon = Icons.Default.DirectionsCar,
                     isSelected = state.vehicleType == "car",
                     onClick = { viewModel.onVehicleTypeChange("car") },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
                 )
                 VehicleTypeOption(
                     title = "Motor",
-                    subtitle = "1 Penumpang (Bonceng)",
+                    subtitle = "Maks 1 Penumpang",
                     icon = Icons.Default.TwoWheeler,
                     isSelected = state.vehicleType == "motorcycle",
                     onClick = { viewModel.onVehicleTypeChange("motorcycle") },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
                 )
             }
 
@@ -328,6 +343,66 @@ fun OfferRideScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                if (state.savedVehicles.isNotEmpty()) {
+                    Text(
+                        text = "Pilih dari Kendaraan Terdaftar",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = NebengColor.Gray600
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        state.savedVehicles.forEach { vehicle ->
+                            val isSelected = vehicle.id == state.selectedVehicleId
+                            val isCar = vehicle.type == VehicleType.CAR
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(NebengRadius.Md))
+                                    .background(if (isSelected) NebengColor.Primary900 else NebengColor.Primary0)
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isSelected) NebengColor.Primary900 else NebengColor.Gray200,
+                                        shape = RoundedCornerShape(NebengRadius.Md)
+                                    )
+                                    .clickable { viewModel.selectSavedVehicle(vehicle) }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (isCar) Icons.Default.DirectionsCar else Icons.Default.TwoWheeler,
+                                    contentDescription = null,
+                                    tint = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "${vehicle.brand} ${vehicle.model}",
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900
+                                    )
+                                    Text(
+                                        text = vehicle.plate,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) NebengColor.Gray400 else NebengColor.Gray600
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    HorizontalDivider(
+                        color = NebengColor.Gray200,
+                        thickness = 0.5.dp,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                }
+
                 Column {
                     Text(
                         text = "Model Kendaraan",
@@ -345,6 +420,18 @@ fun OfferRideScreen(
                             color = NebengColor.Primary900
                         ),
                         singleLine = true,
+                        decorationBox = { innerTextField ->
+                            Box {
+                                if (state.vehicleModel.isEmpty()) {
+                                    Text(
+                                        text = "Contoh: Avanza Hitam / Vario 125",
+                                        fontSize = 14.sp,
+                                        color = NebengColor.Gray400
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(NebengRadius.Md))
@@ -371,6 +458,18 @@ fun OfferRideScreen(
                             color = NebengColor.Primary900
                         ),
                         singleLine = true,
+                        decorationBox = { innerTextField ->
+                            Box {
+                                if (state.vehiclePlate.isEmpty()) {
+                                    Text(
+                                        text = "Contoh: B 1234 ABC",
+                                        fontSize = 14.sp,
+                                        color = NebengColor.Gray400
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(NebengRadius.Md))
@@ -480,7 +579,8 @@ private fun VehicleTypeOption(
             .background(bgColor)
             .border(1.dp, borderColor, RoundedCornerShape(NebengRadius.Lg))
             .clickable(onClick = onClick)
-            .padding(14.dp)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
@@ -490,7 +590,7 @@ private fun VehicleTypeOption(
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(10.dp))
-            Column {
+            Column(verticalArrangement = Arrangement.Center) {
                 Text(
                     text = title,
                     fontSize = 14.sp,

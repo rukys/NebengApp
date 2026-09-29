@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Search
@@ -39,6 +40,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,7 +56,7 @@ fun ConversationsScreen(
     modifier: Modifier = Modifier,
     viewModel: ConversationsViewModel = hiltViewModel(),
     onTabSelected: (NebengTab) -> Unit = {},
-    onNavigateToChat: (driverName: String, vehicleInfo: String, pin: String) -> Unit = { _, _, _ -> }
+    onNavigateToChat: (driverName: String, vehicleInfo: String, pin: String, bookingId: String) -> Unit = { _, _, _, _ -> }
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -100,19 +102,23 @@ fun ConversationsScreen(
                     .padding(horizontal = 20.dp, vertical = 10.dp)
             )
 
-            // 3. Conversation List
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(state.conversations, key = { it.id }) { item ->
-                    ConversationItemCard(
-                        item = item,
-                        onClick = {
-                            onNavigateToChat(item.driverName, item.vehicleInfo, item.pin)
-                        }
-                    )
+            // 3. Conversation List or Empty State
+            if (state.conversations.isEmpty()) {
+                EmptyConversationsView()
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(state.conversations, key = { it.id }) { item ->
+                        ConversationItemCard(
+                            item = item,
+                            onClick = {
+                                onNavigateToChat(item.driverName, item.vehicleInfo, item.pin, item.id)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -329,5 +335,51 @@ private fun ConversationItemCard(
             fontSize = 11.sp,
             color = NebengColor.Gray400
         )
+    }
+}
+
+@Composable
+private fun EmptyConversationsView(
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(NebengColor.Primary50),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Chat,
+                    contentDescription = null,
+                    tint = NebengColor.Primary900,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Belum Ada Obrolan",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = NebengColor.Primary900
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Pesan akan muncul di sini setelah Anda memesan tebengan atau menerima penumpang.",
+                fontSize = 13.sp,
+                color = NebengColor.Gray600,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }

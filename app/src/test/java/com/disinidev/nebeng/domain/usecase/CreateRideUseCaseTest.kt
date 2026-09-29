@@ -90,4 +90,26 @@ class CreateRideUseCaseTest {
         assertTrue(result.isFailure)
         assertEquals("Plat nomor kendaraan harus diisi", result.exceptionOrNull()?.message)
     }
+
+    @Test
+    fun `invoke with blank vehicle model returns failure`() = runTest {
+        val result = useCase(
+            pickupAddress = "Tebet",
+            pickupLat = -6.234,
+            pickupLng = 106.85,
+            dropoffAddress = "SCBD",
+            dropoffLat = -6.225,
+            dropoffLng = 106.81,
+            vehicleBrand = "Toyota",
+            vehicleModel = "",
+            vehiclePlate = "B 1234 ABC",
+            vehicleType = "car",
+            availableSeats = 2,
+            departureTime = "2026-09-24T07:30:00Z",
+            notes = null
+        )
+
+        assertTrue(result.isFailure)
+        assertEquals("Model kendaraan harus diisi", result.exceptionOrNull()?.message)
+    }
 }

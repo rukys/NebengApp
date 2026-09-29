@@ -1,5 +1,6 @@
 package com.disinidev.nebeng.domain.repository
 
+import com.disinidev.nebeng.domain.model.Ride
 import com.disinidev.nebeng.presentation.search.model.RideItemUi
 
 data class CreateRideRequest(
@@ -30,4 +31,8 @@ interface RideRepository {
     ): Result<List<RideItemUi>>
 
     suspend fun createRide(request: CreateRideRequest): Result<String>
+
+    suspend fun getPopularRides(): Result<List<Ride>>
+
+    suspend fun getRideById(rideId: String): Result<RideItemUi?>
 }

@@ -202,6 +202,18 @@ fun NebengNavGraph(
                 onNavigateToSearch = { vehicleType ->
                     navController.navigate(NavDestination.Search(vehicleType = vehicleType))
                 },
+                onNavigateToSearchResults = { pickup, dropoff, vehicleType, pickupLat, pickupLng, departureTime ->
+                    navController.navigate(
+                        NavDestination.SearchResults(
+                            pickupAddress = pickup,
+                            dropoffAddress = dropoff,
+                            vehicleType = vehicleType,
+                            pickupLat = pickupLat,
+                            pickupLng = pickupLng,
+                            departureTime = departureTime
+                        )
+                    )
+                },
                 onNavigateToOfferRide = {
                     navController.navigate(NavDestination.OfferRide)
                 },
@@ -272,12 +284,13 @@ fun NebengNavGraph(
                         NebengTab.AKUN -> navController.navigate(NavDestination.Profile)
                     }
                 },
-                onNavigateToChat = { driverName, vehicleInfo, pin ->
+                onNavigateToChat = { driverName, vehicleInfo, pin, bookingId ->
                     navController.navigate(
                         NavDestination.ChatDetail(
                             driverName = driverName,
                             vehicleInfo = vehicleInfo,
-                            pin = pin
+                            pin = pin,
+                            bookingId = bookingId
                         )
                     )
                 }
@@ -304,6 +317,11 @@ fun NebengNavGraph(
                 },
                 onNavigateToEditProfile = {
                     navController.navigate(NavDestination.EditProfile)
+                },
+                onLogoutSuccess = {
+                    navController.navigate(NavDestination.Login) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 },
                 onTabSelected = { tab ->
                     when (tab) {
@@ -497,12 +515,13 @@ fun NebengNavGraph(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onNavigateToChat = { driverName, bookingId ->
+                onNavigateToChat = { driverName, bookingId, vehicleInfo, pin ->
                     navController.navigate(
                         NavDestination.ChatDetail(
                             driverName = driverName,
-                            vehicleInfo = if (bookingId.contains("ride_2")) "Yamaha NMAX Hitam" else "Avanza Silver",
-                            pin = if (bookingId.contains("ride_2")) "215 889" else "489 201"
+                            vehicleInfo = vehicleInfo,
+                            pin = pin,
+                            bookingId = bookingId
                         )
                     )
                 },

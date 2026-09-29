@@ -2,9 +2,9 @@ package com.disinidev.nebeng.presentation.tripdone
 
 import androidx.lifecycle.SavedStateHandle
 import com.disinidev.nebeng.domain.repository.BookingRepository
+import com.disinidev.nebeng.domain.repository.BookingResult
 import com.disinidev.nebeng.util.MainDispatcherRule
-import com.google.firebase.auth.FirebaseAuth
-import io.github.jan.supabase.SupabaseClient
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -22,19 +22,36 @@ class TripDoneViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val firebaseAuth = mockk<FirebaseAuth>(relaxed = true)
-    private val supabaseClient = mockk<SupabaseClient>(relaxed = true)
     private val bookingRepository = mockk<BookingRepository>(relaxed = true)
     private val savedStateHandle = SavedStateHandle(mapOf("bookingId" to "booking-123"))
     private lateinit var viewModel: TripDoneViewModel
 
     @Before
     fun setUp() {
-        viewModel = TripDoneViewModel(savedStateHandle, firebaseAuth, supabaseClient, bookingRepository)
+        coEvery {
+            bookingRepository.getBookingById("booking-123")
+        } answers {
+            Result.success(
+                BookingResult(
+                    bookingId = "booking-123",
+                    pickupPin = "123456",
+                    driverName = "Andi Pratama",
+                    vehicleModel = "Avanza",
+                    vehiclePlate = "B 1234 ABC"
+                )
+            )
+        }
+        coEvery {
+            bookingRepository.rateTrip(any(), any(), any())
+        } answers {
+            Result.success(Unit)
+        }
+        viewModel = TripDoneViewModel(savedStateHandle, bookingRepository)
     }
 
     @Test
     fun `initial state has bookingId from handle, rating 5, and default driver info`() = runTest {
+        advanceUntilIdle()
         val state = viewModel.uiState.value
 
         assertEquals("booking-123", state.bookingId)

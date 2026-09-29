@@ -24,9 +24,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,11 +53,20 @@ fun CheckoutMotorScreen(
     onConfirmBooking: (rideId: String, helmetChoice: String) -> Unit = { _, _ -> }
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
     val ride = state.ride
+
+    LaunchedEffect(state.errorMessage) {
+        state.errorMessage?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearErrorMessage()
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = NebengColor.Primary0,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CheckoutTopBar(
                 title = "Pesan Tebengan Motor",
@@ -74,16 +87,18 @@ fun CheckoutMotorScreen(
                     .padding(horizontal = 20.dp, vertical = 14.dp)
             ) {
                 NebengButton(
-                    text = "Konfirmasi & Nebeng",
+                    text = "Konfirmasi tebengan",
                     trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
                     isLoading = state.isLoading,
                     onClick = {
-                        viewModel.confirmBooking { bookingId ->
-                            onConfirmBooking(
-                                bookingId,
-                                if (state.helmetOption == HelmetOption.DRIVER_HELMET) "driver_helmet" else "bring_own"
-                            )
-                        }
+                        viewModel.confirmBooking(
+                            onSuccess = { bookingId ->
+                                onConfirmBooking(
+                                    bookingId,
+                                    if (state.helmetOption == HelmetOption.DRIVER_HELMET) "driver_helmet" else "bring_own"
+                                )
+                            }
+                        )
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -99,10 +114,10 @@ fun CheckoutMotorScreen(
         ) {
             // 1. Driver & Motor Card
             DriverVehicleCard(
-                driverName = ride?.driverName ?: "Reza Hendra",
-                vehicleInfo = ride?.vehicleModel ?: "Yamaha NMAX Hitam • B 5678 XYZ",
-                rating = ride?.driverRating ?: 4.8,
-                initials = getInitials(ride?.driverName ?: "Reza Hendra")
+                driverName = ride?.driverName ?: if (state.isLoading) "Memuat pengemudi..." else "Pengemudi",
+                vehicleInfo = ride?.vehicleModel ?: if (state.isLoading) "Memuat kendaraan..." else "-",
+                rating = ride?.driverRating ?: 5.0,
+                initials = if (!ride?.driverName.isNullOrBlank()) getInitials(ride.driverName) else "P"
             )
 
             Spacer(modifier = Modifier.height(16.dp))

@@ -42,9 +42,10 @@ sealed interface NavDestination {
 
     @Serializable
     data class ChatDetail(
-        val driverName: String = "Andi Pratama",
-        val vehicleInfo: String = "Avanza Silver",
-        val pin: String = "489 201"
+        val driverName: String = "Pengemudi",
+        val vehicleInfo: String = "-",
+        val pin: String = "",
+        val bookingId: String = ""
     ) : NavDestination
 
     @Serializable

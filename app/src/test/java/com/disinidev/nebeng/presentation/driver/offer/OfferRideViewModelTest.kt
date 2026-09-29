@@ -1,6 +1,10 @@
 package com.disinidev.nebeng.presentation.driver.offer
 
+import com.disinidev.nebeng.domain.model.VehicleInfo
+import com.disinidev.nebeng.domain.model.VehicleType
 import com.disinidev.nebeng.domain.repository.LocationSearchRepository
+import com.disinidev.nebeng.domain.repository.UserRepository
+import com.disinidev.nebeng.domain.repository.VehicleRepository
 import com.disinidev.nebeng.domain.usecase.CreateRideUseCase
 import com.disinidev.nebeng.util.MainDispatcherRule
 import io.mockk.coEvery
@@ -22,24 +26,52 @@ class OfferRideViewModelTest {
 
     private val createRideUseCase = mockk<CreateRideUseCase>()
     private val locationSearchRepository = mockk<LocationSearchRepository>(relaxed = true)
+    private val vehicleRepository = mockk<VehicleRepository>(relaxed = true)
+    private val userRepository = mockk<UserRepository>(relaxed = true)
     private lateinit var viewModel: OfferRideViewModel
+
+    private val sampleVehicle = VehicleInfo(
+        id = "v_1",
+        brand = "Honda",
+        model = "HR-V",
+        plate = "B 9999 XYZ",
+        type = VehicleType.CAR,
+        color = "Hitam",
+        year = 2023,
+        isVerified = true
+    )
+
+    private val sampleMotorcycle = VehicleInfo(
+        id = "v_2",
+        brand = "Yamaha",
+        model = "NMAX Hitam",
+        plate = "B 8888 ABC",
+        type = VehicleType.MOTORCYCLE,
+        color = "Hitam",
+        year = 2022,
+        isVerified = true
+    )
 
     @Before
     fun setUp() {
-        viewModel = OfferRideViewModel(createRideUseCase, locationSearchRepository)
+        coEvery { userRepository.getCurrentUserUuid() } returns "driver_123"
+        coEvery { vehicleRepository.getDriverVehicles("driver_123") } returns Result.success(listOf(sampleVehicle, sampleMotorcycle))
+        viewModel = OfferRideViewModel(createRideUseCase, locationSearchRepository, vehicleRepository, userRepository)
     }
 
     @Test
-    fun `initial state has defaults`() {
+    fun `initial state loads saved vehicle and sets defaults`() = runTest {
+        advanceUntilIdle()
         val state = viewModel.uiState.value
         assertEquals("car", state.vehicleType)
-        assertEquals(3, state.availableSeats)
-        assertEquals("Toyota Avanza Silver", state.vehicleModel)
-        assertEquals("B 1234 ABC", state.vehiclePlate)
+        assertEquals("Honda HR-V", state.vehicleModel)
+        assertEquals("B 9999 XYZ", state.vehiclePlate)
+        assertEquals("v_1", state.selectedVehicleId)
     }
 
     @Test
-    fun `onVehicleTypeChange to motorcycle sets seats to 1`() {
+    fun `onVehicleTypeChange to motorcycle sets seats to 1`() = runTest {
+        advanceUntilIdle()
         viewModel.onVehicleTypeChange("motorcycle")
         val state = viewModel.uiState.value
         assertEquals("motorcycle", state.vehicleType)

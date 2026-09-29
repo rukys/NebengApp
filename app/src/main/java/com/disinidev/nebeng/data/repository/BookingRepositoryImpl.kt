@@ -1,20 +1,25 @@
 package com.disinidev.nebeng.data.repository
 
 import android.util.Log
+import com.disinidev.nebeng.domain.repository.BookingActivityItem
 import com.disinidev.nebeng.domain.repository.BookingRepository
 import com.disinidev.nebeng.domain.repository.BookingResult
 import com.disinidev.nebeng.domain.repository.DriverBookingRequest
+import com.disinidev.nebeng.domain.repository.UserActivities
 import com.disinidev.nebeng.domain.repository.UserRepository
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -27,6 +32,7 @@ private data class RemotePendingBookingDto(
     val seat_position: String,
     val pickup_pin: String,
     val status: String,
+    val created_at: String? = null,
     val rides: RemoteBookingRideDto? = null,
     val users: RemoteBookingUserDto? = null
 ) {
@@ -51,7 +57,13 @@ private data class RemoteBookingRideDto(
     val id: String,
     val pickup_address: String,
     val dropoff_address: String,
-    val driver_id: String
+    val driver_id: String,
+    val vehicle_brand: String? = null,
+    val vehicle_model: String? = null,
+    val vehicle_plate: String? = null,
+    val vehicle_type: String? = null,
+    val departure_time: String? = null,
+    val users: RemoteBookingUserDto? = null
 )
 
 @Serializable
@@ -73,8 +85,11 @@ private data class RemoteBookingDetailDto(
 
 @Serializable
 private data class RemoteDetailRideDto(
-    val vehicle_model: String,
-    val vehicle_plate: String,
+    val vehicle_model: String? = null,
+    val vehicle_plate: String? = null,
+    val vehicle_type: String? = null,
+    val pickup_address: String? = null,
+    val dropoff_address: String? = null,
     val users: RemoteDetailUserDto? = null
 )
 
@@ -90,23 +105,7 @@ class BookingRepositoryImpl @Inject constructor(
 ) : BookingRepository {
 
     private val localBookings = ConcurrentHashMap<String, BookingResult>()
-    private val localRequests = ConcurrentHashMap<String, DriverBookingRequest>().apply {
-        put(
-            "req-001",
-            DriverBookingRequest(
-                bookingId = "req-001",
-                rideId = "ride-current",
-                passengerId = "user-budi",
-                passengerName = "Budi Santoso",
-                pickupAddress = "Samping Lawson Tebet Barat",
-                dropoffAddress = "Sudirman SCBD (Gedung Pasific)",
-                seatPosition = "Depan Kiri",
-                pickupPin = "489 201",
-                status = "pending",
-                notes = "Tolong tunggu di dekat minimarket ya mas"
-            )
-        )
-    }
+    private val localRequests = ConcurrentHashMap<String, DriverBookingRequest>()
 
     private fun mapSeatPositionToDb(seat: String): String {
         return when (seat.lowercase()) {
@@ -170,15 +169,37 @@ class BookingRepositoryImpl @Inject constructor(
             }
 
             val finalBookingId = bookingId ?: UUID.randomUUID().toString()
-            val isMotor = rideId.contains("ride_2") || seatPosition == "pillion"
+
+            val rideInfo = try {
+                supabaseClient.postgrest.from("rides").select(
+                    columns = Columns.raw(
+                        "vehicle_model, vehicle_plate, vehicle_type, pickup_address, dropoff_address, " +
+                        "users!rides_driver_id_fkey(full_name)"
+                    )
+                ) {
+                    filter {
+                        eq("id", targetRideId)
+                    }
+                }.decodeSingleOrNull<RemoteDetailRideDto>()
+            } catch (e: Exception) {
+                null
+            }
+
+            val isMotor = rideInfo?.vehicle_type == "motorcycle" || seatPosition == "pillion"
+            val driverName = rideInfo?.users?.full_name ?: if (isMotor) "Pengemudi Motor" else "Pengemudi Mobil"
+            val vehicleModel = rideInfo?.vehicle_model ?: if (isMotor) "Motor" else "Mobil"
+            val vehiclePlate = rideInfo?.vehicle_plate ?: "-"
 
             val result = BookingResult(
                 bookingId = finalBookingId,
                 pickupPin = generatedPin,
-                driverName = if (isMotor) "Reza Hendra" else "Andi Pratama",
-                vehicleModel = if (isMotor) "Yamaha NMAX Hitam" else "Toyota Avanza Silver",
-                vehiclePlate = if (isMotor) "B 5678 XYZ" else "B 1234 ABC",
-                seatPosition = seatPosition
+                driverName = driverName,
+                vehicleModel = vehicleModel,
+                vehiclePlate = vehiclePlate,
+                seatPosition = seatPosition,
+                pickupAddress = rideInfo?.pickup_address ?: "",
+                dropoffAddress = rideInfo?.dropoff_address ?: "",
+                vehicleType = rideInfo?.vehicle_type ?: if (isMotor) "motorcycle" else "car"
             )
 
             localBookings[finalBookingId] = result
@@ -196,7 +217,7 @@ class BookingRepositoryImpl @Inject constructor(
                     val remote = supabaseClient.postgrest.from("bookings").select(
                         columns = Columns.raw(
                             "id, pickup_pin, seat_position, status, " +
-                            "rides(vehicle_model, vehicle_plate, " +
+                            "rides(vehicle_model, vehicle_plate, vehicle_type, pickup_address, dropoff_address, " +
                             "users!rides_driver_id_fkey(full_name))"
                         )
                     ) {
@@ -209,10 +230,13 @@ class BookingRepositoryImpl @Inject constructor(
                         val result = BookingResult(
                             bookingId = remote.id,
                             pickupPin = remote.pickup_pin,
-                            driverName = remote.rides?.users?.full_name ?: "Andi Pratama",
-                            vehicleModel = remote.rides?.vehicle_model ?: "Toyota Avanza Silver",
-                            vehiclePlate = remote.rides?.vehicle_plate ?: "B 1234 ABC",
-                            seatPosition = remote.seat_position
+                            driverName = remote.rides?.users?.full_name ?: "",
+                            vehicleModel = remote.rides?.vehicle_model ?: "",
+                            vehiclePlate = remote.rides?.vehicle_plate ?: "",
+                            seatPosition = remote.seat_position,
+                            pickupAddress = remote.rides?.pickup_address ?: "",
+                            dropoffAddress = remote.rides?.dropoff_address ?: "",
+                            vehicleType = remote.rides?.vehicle_type ?: "car"
                         )
                         localBookings[bookingId] = result
                         return@runCatching result
@@ -222,14 +246,13 @@ class BookingRepositoryImpl @Inject constructor(
                 }
             }
 
-            val isMotor = bookingId.contains("ride_2")
-            BookingResult(
+            localBookings[bookingId] ?: BookingResult(
                 bookingId = bookingId,
-                pickupPin = if (isMotor) "215 889" else "489 201",
-                driverName = if (isMotor) "Reza Hendra" else "Andi Pratama",
-                vehicleModel = if (isMotor) "Yamaha NMAX Hitam" else "Toyota Avanza Silver",
-                vehiclePlate = if (isMotor) "B 5678 XYZ" else "B 1234 ABC",
-                seatPosition = if (isMotor) "pillion" else "front_left"
+                pickupPin = "",
+                driverName = "",
+                vehicleModel = "",
+                vehiclePlate = "",
+                seatPosition = ""
             )
         }
     }
@@ -282,15 +305,11 @@ class BookingRepositoryImpl @Inject constructor(
                     }
                 }.decodeList<RemotePendingBookingDto>()
 
-                if (list.isNotEmpty()) {
-                    val requests = list.map { it.toDriverBookingRequest() }
-                    return@runCatching requests
-                }
+                return@runCatching list.map { it.toDriverBookingRequest() }
             } catch (e: Exception) {
                 Log.e("BookingRepository", "getPendingRequests Supabase error: ${e.message}", e)
+                localRequests.values.filter { it.status == "pending" }.toList()
             }
-
-            localRequests.values.filter { it.status == "pending" }.toList()
         }
     }
 
@@ -317,6 +336,152 @@ class BookingRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun cancelBooking(bookingId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            localBookings.remove(bookingId)
+            localRequests[bookingId]?.let {
+                localRequests[bookingId] = it.copy(status = "cancelled")
+            }
+            if (runCatching { UUID.fromString(bookingId) }.isSuccess) {
+                try {
+                    supabaseClient.postgrest.from("bookings").update(
+                        mapOf("status" to "cancelled")
+                    ) {
+                        filter {
+                            eq("id", bookingId)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("BookingRepository", "cancelBooking Supabase error: ${e.message}", e)
+                    throw e
+                }
+            }
+            Unit
+        }
+    }
+
+    override suspend fun getUserActivities(userUuid: String): Result<UserActivities> = withContext(Dispatchers.IO) {
+        runCatching {
+            val dateFormatter = DateTimeFormatter.ofPattern("d MMM, HH:mm").withZone(ZoneId.of("Asia/Jakarta"))
+
+            // 1. Fetch user bookings as passenger
+            val passengerBookings = try {
+                supabaseClient.from("bookings").select(
+                    columns = Columns.raw(
+                        "id, seat_position, pickup_pin, status, created_at, " +
+                        "rides(id, pickup_address, dropoff_address, vehicle_brand, vehicle_model, vehicle_plate, vehicle_type, departure_time, driver_id, " +
+                        "users!rides_driver_id_fkey(id, full_name, avatar_url)), " +
+                        "users!bookings_passenger_id_fkey(id, full_name, avatar_url)"
+                    )
+                ) {
+                    filter {
+                        eq("passenger_id", userUuid)
+                    }
+                    order("created_at", Order.DESCENDING)
+                }.decodeList<RemotePendingBookingDto>()
+            } catch (_: Exception) {
+                emptyList()
+            }
+
+            // 2. Fetch driver bookings
+            val driverBookings = try {
+                supabaseClient.from("bookings").select(
+                    columns = Columns.raw(
+                        "id, seat_position, pickup_pin, status, created_at, " +
+                        "rides!inner(id, pickup_address, dropoff_address, vehicle_brand, vehicle_model, vehicle_plate, vehicle_type, departure_time, driver_id), " +
+                        "users!bookings_passenger_id_fkey(id, full_name, avatar_url)"
+                    )
+                ) {
+                    filter {
+                        eq("rides.driver_id", userUuid)
+                    }
+                    order("created_at", Order.DESCENDING)
+                }.decodeList<RemotePendingBookingDto>()
+            } catch (_: Exception) {
+                emptyList()
+            }
+
+            val allBookings = passengerBookings + driverBookings
+            if (allBookings.isNotEmpty()) {
+                val ongoing = allBookings.firstOrNull { it.status in listOf("pending", "confirmed", "picked_up") }
+                val completed = allBookings.filter { it.status == "done" }
+                val cancelled = allBookings.filter { it.status == "cancelled" }
+
+                val activeItem = ongoing?.let { b ->
+                    val isDriver = b.rides?.driver_id == userUuid
+                    val counterpartName = if (isDriver) b.users?.full_name ?: "Penumpang" else b.rides?.users?.full_name ?: "Pengemudi"
+                    val formattedTime = runCatching {
+                        b.rides?.departure_time?.let { dateFormatter.format(Instant.parse(it)) }
+                            ?: b.created_at?.let { dateFormatter.format(Instant.parse(it)) }
+                    }.getOrNull() ?: "Segera"
+
+                    BookingActivityItem(
+                        id = b.id,
+                        origin = b.rides?.pickup_address ?: "-",
+                        destination = b.rides?.dropoff_address ?: "-",
+                        timeText = formattedTime,
+                        vehicleType = if (b.rides?.vehicle_type == "motorcycle") "Motor" else "Mobil",
+                        counterpartName = counterpartName,
+                        status = b.status,
+                        pin = b.pickup_pin,
+                        vehicleModel = b.rides?.vehicle_model ?: "-",
+                        licensePlate = b.rides?.vehicle_plate ?: "-"
+                    )
+                }
+
+                val completedItems = completed.map { b ->
+                    val isDriver = b.rides?.driver_id == userUuid
+                    val counterpartName = if (isDriver) b.users?.full_name ?: "Penumpang" else b.rides?.users?.full_name ?: "Pengemudi"
+                    val formattedTime = runCatching {
+                        b.created_at?.let { dateFormatter.format(Instant.parse(it)) }
+                    }.getOrNull() ?: "Selesai"
+                    BookingActivityItem(
+                        id = b.id,
+                        origin = b.rides?.pickup_address ?: "-",
+                        destination = b.rides?.dropoff_address ?: "-",
+                        timeText = formattedTime,
+                        vehicleType = if (b.rides?.vehicle_type == "motorcycle") "Motor" else "Mobil",
+                        counterpartName = counterpartName,
+                        status = "SELESAI",
+                        vehicleModel = b.rides?.vehicle_model ?: "",
+                        licensePlate = b.rides?.vehicle_plate ?: ""
+                    )
+                }
+
+                val canceledItems = cancelled.map { b ->
+                    val isDriver = b.rides?.driver_id == userUuid
+                    val counterpartName = if (isDriver) b.users?.full_name ?: "Penumpang" else b.rides?.users?.full_name ?: "Pengemudi"
+                    val formattedTime = runCatching {
+                        b.created_at?.let { dateFormatter.format(Instant.parse(it)) }
+                    }.getOrNull() ?: "Dibatalkan"
+                    BookingActivityItem(
+                        id = b.id,
+                        origin = b.rides?.pickup_address ?: "-",
+                        destination = b.rides?.dropoff_address ?: "-",
+                        timeText = formattedTime,
+                        vehicleType = if (b.rides?.vehicle_type == "motorcycle") "Motor" else "Mobil",
+                        counterpartName = counterpartName,
+                        status = "DIBATALKAN",
+                        vehicleModel = b.rides?.vehicle_model ?: "",
+                        licensePlate = b.rides?.vehicle_plate ?: ""
+                    )
+                }
+
+                UserActivities(
+                    activeTrip = activeItem,
+                    completedTrips = completedItems,
+                    canceledTrips = canceledItems
+                )
+            } else {
+                UserActivities(
+                    activeTrip = null,
+                    completedTrips = emptyList(),
+                    canceledTrips = emptyList()
+                )
+            }
+        }
+    }
+
     private suspend fun ensureDemoRideInSupabase(rideKey: String): String {
         val deterministicUuid = UUID.nameUUIDFromBytes("nebeng_demo_ride_$rideKey".toByteArray()).toString()
         try {
@@ -333,7 +498,7 @@ class BookingRepositoryImpl @Inject constructor(
                     mapOf(
                         "id" to driverUuid,
                         "firebase_uid" to "demo_driver_andi",
-                        "full_name" to "Andi Pratama",
+                        "full_name" to "Mitra Pengemudi",
                         "phone_number" to "081299887766",
                         "role" to "driver"
                     )

@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.disinidev.nebeng.domain.model.VehicleType
 import com.disinidev.nebeng.domain.usecase.SearchRidesUseCase
 import com.disinidev.nebeng.presentation.search.model.DriverGender
+import com.disinidev.nebeng.presentation.search.model.RideItemUi
 import com.disinidev.nebeng.presentation.search.model.SearchFilterOptions
 import com.disinidev.nebeng.presentation.search.model.SortBy
 import com.disinidev.nebeng.presentation.search.model.VehicleFilter
@@ -27,11 +28,56 @@ class SearchResultsViewModelTest {
     private val searchRidesUseCase: SearchRidesUseCase = mockk()
     private lateinit var viewModel: SearchResultsViewModel
 
+    private val sampleRides = listOf(
+        RideItemUi(
+            id = "ride_1",
+            driverName = "Andi Pratama",
+            driverGender = DriverGender.MALE,
+            vehicleModel = "Toyota Avanza",
+            vehicleType = VehicleType.CAR,
+            departureTimeFormatted = "07:30",
+            arrivalTimeFormatted = "07:55",
+            availableSeats = 2,
+            availableSeatsText = "Sisa 2 kursi",
+            facilities = listOf("AC", "Non-Smoking"),
+            driverRating = 4.9,
+            totalTrips = 120
+        ),
+        RideItemUi(
+            id = "ride_2",
+            driverName = "Reza Hendra",
+            driverGender = DriverGender.MALE,
+            vehicleModel = "Yamaha NMAX",
+            vehicleType = VehicleType.MOTORCYCLE,
+            departureTimeFormatted = "07:45",
+            arrivalTimeFormatted = "08:05",
+            availableSeats = 1,
+            availableSeatsText = "1 slot",
+            facilities = listOf("Helm SNI"),
+            driverRating = 4.8,
+            totalTrips = 85
+        ),
+        RideItemUi(
+            id = "ride_3",
+            driverName = "Siti Rahma",
+            driverGender = DriverGender.FEMALE,
+            vehicleModel = "Honda Brio",
+            vehicleType = VehicleType.CAR,
+            departureTimeFormatted = "08:00",
+            arrivalTimeFormatted = "08:30",
+            availableSeats = 3,
+            availableSeatsText = "Sisa 3 kursi",
+            facilities = listOf("AC", "Non-Smoking"),
+            driverRating = 5.0,
+            totalTrips = 150
+        )
+    )
+
     @Before
     fun setUp() {
         coEvery {
             searchRidesUseCase.invoke(any(), any(), any(), any(), any())
-        } returns Result.success(emptyList())
+        } returns Result.success(sampleRides)
 
         val savedStateHandle = SavedStateHandle(
             mapOf(
@@ -43,6 +89,7 @@ class SearchResultsViewModelTest {
             )
         )
         viewModel = SearchResultsViewModel(savedStateHandle, searchRidesUseCase)
+        mainDispatcherRule.testDispatcher.scheduler.advanceUntilIdle()
     }
 
     @Test

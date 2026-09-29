@@ -1,9 +1,11 @@
 package com.disinidev.nebeng.presentation.notification
 
+import com.disinidev.nebeng.domain.model.Notification
 import com.disinidev.nebeng.domain.model.NotificationCategory
+import com.disinidev.nebeng.domain.repository.NotificationRepository
 import com.disinidev.nebeng.util.MainDispatcherRule
-import com.google.firebase.auth.FirebaseAuth
-import io.github.jan.supabase.SupabaseClient
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -14,6 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import java.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class NotificationViewModelTest {
@@ -21,13 +24,48 @@ class NotificationViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val firebaseAuth = mockk<FirebaseAuth>(relaxed = true)
-    private val supabaseClient = mockk<SupabaseClient>(relaxed = true)
+    private val notificationRepository = mockk<NotificationRepository>()
     private lateinit var viewModel: NotificationViewModel
+
+    private val testNotifications = listOf(
+        Notification(
+            id = "notif_1",
+            userId = "user_1",
+            category = NotificationCategory.TRIP,
+            title = "Driver On The Way",
+            body = "Driver is coming",
+            actionUrl = "tracking/123",
+            isRead = false,
+            createdAt = Instant.now()
+        ),
+        Notification(
+            id = "notif_2",
+            userId = "user_1",
+            category = NotificationCategory.TRIP,
+            title = "Trip Completed",
+            body = "Rate your driver",
+            actionUrl = null,
+            isRead = true,
+            createdAt = Instant.now()
+        ),
+        Notification(
+            id = "notif_3",
+            userId = "user_1",
+            category = NotificationCategory.SYSTEM,
+            title = "Account Verified",
+            body = "Your profile is verified",
+            actionUrl = null,
+            isRead = true,
+            createdAt = Instant.now()
+        )
+    )
 
     @Before
     fun setUp() {
-        viewModel = NotificationViewModel(firebaseAuth, supabaseClient)
+        coEvery { notificationRepository.getNotifications() } returns Result.success(testNotifications)
+        coEvery { notificationRepository.markAsRead(any()) } returns Result.success(Unit)
+        coEvery { notificationRepository.markAllAsRead() } returns Result.success(Unit)
+        viewModel = NotificationViewModel(notificationRepository)
     }
 
     @Test
@@ -74,6 +112,7 @@ class NotificationViewModelTest {
 
         val updated = viewModel.uiState.value.notifications.first { it.id == unreadNotif.id }
         assertTrue(updated.isRead)
+        coVerify { notificationRepository.markAsRead(unreadNotif.id) }
     }
 
     @Test
@@ -84,5 +123,6 @@ class NotificationViewModelTest {
 
         val state = viewModel.uiState.value
         assertTrue(state.notifications.all { it.isRead })
+        coVerify { notificationRepository.markAllAsRead() }
     }
 }

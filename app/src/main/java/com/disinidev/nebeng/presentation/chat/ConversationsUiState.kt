@@ -1,7 +1,7 @@
 package com.disinidev.nebeng.presentation.chat
 
 enum class ConversationFilter(val label: String) {
-    ALL("Semua (4)"),
+    ALL("Semua"),
     ACTIVE("Tebengan Aktif"),
     GROUP("Grup Rute")
 }

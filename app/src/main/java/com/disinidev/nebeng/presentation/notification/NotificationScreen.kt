@@ -127,7 +127,11 @@ fun NotificationScreen(
                                 onClick = { viewModel.markAsRead(notif.id) },
                                 onActionClick = {
                                     viewModel.markAsRead(notif.id)
-                                    onNavigateToLiveTracking("booking_current")
+                                    val parsedBookingId = notif.actionUrl?.let { url ->
+                                        Regex("nebeng://trip/([^/]+)/tracking").find(url)?.groupValues?.get(1)
+                                            ?: url.substringAfterLast("/").takeIf { it.isNotBlank() && it != "activity" }
+                                    } ?: "booking_current"
+                                    onNavigateToLiveTracking(parsedBookingId)
                                 }
                             )
                         }

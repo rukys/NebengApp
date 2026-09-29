@@ -2,8 +2,8 @@ package com.disinidev.nebeng.presentation.auth.splash
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.disinidev.nebeng.domain.repository.AuthRepository
 import com.disinidev.nebeng.domain.repository.UserPreferencesRepository
-import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +21,7 @@ sealed interface SplashUiState {
 
 @HiltViewModel
 class SplashViewModel @Inject constructor(
-    private val firebaseAuth: FirebaseAuth,
+    private val authRepository: AuthRepository,
     private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
@@ -36,7 +36,7 @@ class SplashViewModel @Inject constructor(
         viewModelScope.launch {
             // Tampilkan splash screen 2 detik sesuai UX pattern
             delay(2000)
-            if (firebaseAuth.currentUser != null) {
+            if (authRepository.isLoggedIn()) {
                 _uiState.value = SplashUiState.NavigateToHome
             } else if (userPreferencesRepository.isOnboardingCompleted()) {
                 _uiState.value = SplashUiState.NavigateToLogin

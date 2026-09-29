@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.disinidev.nebeng.core.location.LocationClient
 import com.disinidev.nebeng.domain.repository.BookingRepository
 import com.disinidev.nebeng.domain.repository.DriverBookingRequest
+import com.disinidev.nebeng.domain.repository.UserRepository
 import com.disinidev.nebeng.domain.usecase.UpdateDriverLocationUseCase
-import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +25,7 @@ data class DriverRequestsUiState(
 class DriverRequestsViewModel @Inject constructor(
     private val bookingRepository: BookingRepository,
     private val updateDriverLocationUseCase: UpdateDriverLocationUseCase,
-    private val firebaseAuth: FirebaseAuth,
+    private val userRepository: UserRepository,
     private val locationClient: LocationClient
 ) : ViewModel() {
 
@@ -37,9 +37,9 @@ class DriverRequestsViewModel @Inject constructor(
     }
 
     fun loadRequests() {
-        val driverId = firebaseAuth.currentUser?.uid ?: "driver-001"
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
+            val driverId = userRepository.getCurrentUserUuid()
             val result = bookingRepository.getPendingRequests(driverId)
             result.fold(
                 onSuccess = { list ->
@@ -55,30 +55,48 @@ class DriverRequestsViewModel @Inject constructor(
     fun acceptRequest(bookingId: String) {
         viewModelScope.launch {
             bookingRepository.respondBookingRequest(bookingId, accept = true)
-            // Initialize driver location entry in Supabase trip_locations using real GPS if available
-            val loc = if (locationClient.hasLocationPermission()) locationClient.getCurrentLocation() else null
-            val lat = loc?.latitude ?: -6.2245
-            val lng = loc?.longitude ?: 106.8048
-            updateDriverLocationUseCase(bookingId, lat, lng)
+                .onSuccess {
+                    // Initialize driver location entry in Supabase trip_locations using real GPS if available
+                    val loc = if (locationClient.hasLocationPermission()) locationClient.getCurrentLocation() else null
+                    val lat = loc?.latitude ?: -6.2245
+                    val lng = loc?.longitude ?: 106.8048
+                    updateDriverLocationUseCase(bookingId, lat, lng)
 
-            _uiState.update { state ->
-                state.copy(
-                    requests = state.requests.filter { it.bookingId != bookingId },
-                    actionMessage = "Permintaan penumpang diterima!"
-                )
-            }
+                    _uiState.update { state ->
+                        state.copy(
+                            requests = state.requests.filter { it.bookingId != bookingId },
+                            actionMessage = "Permintaan tebengan diterima."
+                        )
+                    }
+                }
+                .onFailure {
+                    _uiState.update { state ->
+                        state.copy(
+                            actionMessage = "Gagal menerima permintaan tebengan. Terjadi gangguan koneksi. Coba lagi dalam beberapa saat."
+                        )
+                    }
+                }
         }
     }
 
     fun rejectRequest(bookingId: String) {
         viewModelScope.launch {
             bookingRepository.respondBookingRequest(bookingId, accept = false)
-            _uiState.update { state ->
-                state.copy(
-                    requests = state.requests.filter { it.bookingId != bookingId },
-                    actionMessage = "Permintaan penumpang ditolak"
-                )
-            }
+                .onSuccess {
+                    _uiState.update { state ->
+                        state.copy(
+                            requests = state.requests.filter { it.bookingId != bookingId },
+                            actionMessage = "Permintaan tebengan ditolak."
+                        )
+                    }
+                }
+                .onFailure {
+                    _uiState.update { state ->
+                        state.copy(
+                            actionMessage = "Gagal menolak permintaan tebengan. Terjadi gangguan koneksi. Coba lagi dalam beberapa saat."
+                        )
+                    }
+                }
         }
     }
 

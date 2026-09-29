@@ -61,6 +61,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     onNavigateToNotifications: () -> Unit = {},
     onNavigateToSearch: (String) -> Unit = {},
+    onNavigateToSearchResults: (pickup: String, dropoff: String, vehicleType: String, pickupLat: Double, pickupLng: Double, departureTime: String) -> Unit = { _, _, _, _, _, _ -> },
     onNavigateToOfferRide: () -> Unit = {},
     onNavigateToRoutine: () -> Unit = {},
     onNavigateToRideDetail: (String) -> Unit = {},
@@ -171,7 +172,19 @@ fun HomeScreen(
                             fontWeight = FontWeight.Bold,
                             color = NebengColor.Primary900,
                             modifier = Modifier.clickable {
-                                onNavigateToSearch(if (state.selectedService == ServiceType.MOTORCYCLE) "motorcycle" else "car")
+                                val vehicleTypeParam = when (state.selectedService) {
+                                    ServiceType.MOTORCYCLE -> "motorcycle"
+                                    ServiceType.CAR -> "car"
+                                    else -> "all"
+                                }
+                                onNavigateToSearchResults(
+                                    state.userLocation.ifBlank { "Lokasi Sekitarmu" },
+                                    "Semua Rute Tebengan",
+                                    vehicleTypeParam,
+                                    state.userLat,
+                                    state.userLng,
+                                    "Hari Ini"
+                                )
                             }
                         )
                     }

@@ -2,41 +2,19 @@ package com.disinidev.nebeng.presentation.profile.edit
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.auth.FirebaseAuth
+import com.disinidev.nebeng.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.Serializable
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 
-@Serializable
-private data class EditUserProfileDto(
-    val id: String? = null,
-    val full_name: String? = null,
-    val phone_number: String? = null,
-    val email: String? = null,
-    val office_address: String? = null,
-    val bio: String? = null,
-    val avatar_url: String? = null
-)
-
-@Serializable
-private data class UpdateUserProfileDto(
-    val full_name: String,
-    val office_address: String,
-    val bio: String
-)
-
 @HiltViewModel
 class EditProfileViewModel @Inject constructor(
-    private val firebaseAuth: FirebaseAuth,
-    private val supabaseClient: SupabaseClient
+    private val userRepository: UserRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EditProfileUiState())
@@ -44,6 +22,23 @@ class EditProfileViewModel @Inject constructor(
 
     init {
         loadUserProfile()
+    }
+
+    fun uploadAvatar(imageBytes: ByteArray) {
+        _uiState.update { it.copy(isSaving = true) }
+        viewModelScope.launch {
+            val result = userRepository.uploadAvatar(imageBytes)
+            result.fold(
+                onSuccess = { url ->
+                    _uiState.update { it.copy(avatarUrl = url, isSaving = false) }
+                    showMessage("Foto profil berhasil diperbarui")
+                },
+                onFailure = { e ->
+                    _uiState.update { it.copy(isSaving = false) }
+                    showMessage(e.localizedMessage ?: "Gagal mengunggah foto")
+                }
+            )
+        }
     }
 
     fun onFullNameChange(name: String) {
@@ -78,27 +73,15 @@ class EditProfileViewModel @Inject constructor(
     }
 
     fun saveProfile(onSuccess: () -> Unit) {
-        val currentUser = firebaseAuth.currentUser
-        val uid = currentUser?.uid
-
         _uiState.update { it.copy(isSaving = true) }
 
         viewModelScope.launch {
             try {
-                if (uid != null) {
-                    supabaseClient.postgrest["users"]
-                        .update(
-                            UpdateUserProfileDto(
-                                full_name = _uiState.value.fullName,
-                                office_address = _uiState.value.officeBuilding,
-                                bio = _uiState.value.bio
-                            )
-                        ) {
-                            filter {
-                                eq("firebase_uid", uid)
-                            }
-                        }
-                }
+                userRepository.updateUserProfile(
+                    fullName = _uiState.value.fullName,
+                    officeAddress = _uiState.value.officeBuilding,
+                    bio = _uiState.value.bio
+                )
                 _uiState.update {
                     it.copy(
                         isSaving = false,
@@ -130,46 +113,28 @@ class EditProfileViewModel @Inject constructor(
     }
 
     private fun loadUserProfile() {
-        val currentUser = firebaseAuth.currentUser
-        val uid = currentUser?.uid
+        viewModelScope.launch {
+            userRepository.getUserProfile()
+                .onSuccess { profile ->
+                    val fullName = profile.fullName
+                    val initials = fullName.split(" ")
+                        .mapNotNull { it.firstOrNull()?.toString() }
+                        .take(2)
+                        .joinToString("")
+                        .uppercase()
 
-        if (uid != null) {
-            viewModelScope.launch {
-                try {
-                    val profile = supabaseClient.postgrest["users"]
-                        .select {
-                            filter {
-                                eq("firebase_uid", uid)
-                            }
-                        }
-                        .decodeSingleOrNull<EditUserProfileDto>()
-
-                    if (profile != null) {
-                        val fullName = profile.full_name ?: currentUser.displayName ?: "Budi Santoso"
-                        val initials = fullName.split(" ")
-                            .mapNotNull { it.firstOrNull()?.toString() }
-                            .take(2)
-                            .joinToString("")
-                            .uppercase()
-
-                        _uiState.update { current ->
-                            current.copy(
-                                fullName = fullName,
-                                whatsappNumber = profile.phone_number ?: currentUser.phoneNumber ?: current.whatsappNumber,
-                                email = profile.email ?: currentUser.email ?: current.email,
-                                officeBuilding = profile.office_address ?: current.officeBuilding,
-                                bio = profile.bio ?: current.bio,
-                                avatarUrl = profile.avatar_url,
-                                avatarInitials = if (initials.isNotBlank()) initials else "BS"
-                            )
-                        }
+                    _uiState.update { current ->
+                        current.copy(
+                            fullName = fullName,
+                            whatsappNumber = profile.phoneNumber,
+                            email = profile.email,
+                            officeBuilding = profile.officeAddress ?: current.officeBuilding,
+                            bio = profile.bio ?: current.bio,
+                            avatarUrl = profile.avatarUrl,
+                            avatarInitials = initials.ifBlank { if (fullName.isNotBlank()) fullName.first().uppercase() else "U" }
+                        )
                     }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    // Fallback to default state
                 }
-            }
         }
     }
 }

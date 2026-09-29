@@ -4,8 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.disinidev.nebeng.domain.model.VehicleType
+import com.disinidev.nebeng.domain.repository.RideRepository
 import com.disinidev.nebeng.domain.usecase.CreateBookingUseCase
-import com.disinidev.nebeng.presentation.search.model.DriverGender
 import com.disinidev.nebeng.presentation.search.model.RideItemUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,23 +25,52 @@ data class CheckoutUiState(
     val selectedSeat: String = "tengah_kiri",
     val helmetOption: HelmetOption = HelmetOption.DRIVER_HELMET,
     val isLoading: Boolean = false,
-    val isConfirmed: Boolean = false
+    val isConfirmed: Boolean = false,
+    val errorMessage: String? = null
 )
 
 @HiltViewModel
 class CheckoutViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val createBookingUseCase: CreateBookingUseCase
+    private val createBookingUseCase: CreateBookingUseCase,
+    private val rideRepository: RideRepository
 ) : ViewModel() {
 
-    private val rideId: String = savedStateHandle.get<String>("rideId") ?: "ride_1"
+    private val rideId: String = savedStateHandle.get<String>("rideId") ?: ""
 
     private val _uiState = MutableStateFlow(
         CheckoutUiState(
-            ride = getRideById(rideId)
+            isLoading = true
         )
     )
     val uiState: StateFlow<CheckoutUiState> = _uiState.asStateFlow()
+
+    init {
+        loadRideDetails()
+    }
+
+    private fun loadRideDetails() {
+        if (rideId.isBlank()) {
+            _uiState.update { it.copy(isLoading = false, errorMessage = "ID Tebengan tidak valid") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            rideRepository.getRideById(rideId)
+                .onSuccess { ride ->
+                    val defaultSeat = if (ride?.vehicleType == VehicleType.MOTORCYCLE) "pillion" else "tengah_kiri"
+                    _uiState.update { it.copy(ride = ride, selectedSeat = defaultSeat, isLoading = false) }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error.message ?: "Gagal memuat detail tebengan. Periksa koneksi internet."
+                        )
+                    }
+                }
+        }
+    }
 
     fun selectSeat(seatId: String) {
         _uiState.update { it.copy(selectedSeat = seatId) }
@@ -51,62 +80,29 @@ class CheckoutViewModel @Inject constructor(
         _uiState.update { it.copy(helmetOption = option) }
     }
 
-    fun confirmBooking(onSuccess: (bookingId: String) -> Unit = {}) {
+    fun confirmBooking(
+        onSuccess: (bookingId: String) -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             val seat = _uiState.value.selectedSeat
             val result = createBookingUseCase(rideId, seat)
-            val bookingId = result.getOrNull()?.bookingId ?: "booking_$rideId"
-            _uiState.update { it.copy(isLoading = false, isConfirmed = true) }
-            onSuccess(bookingId)
+            result.fold(
+                onSuccess = { booking ->
+                    _uiState.update { it.copy(isLoading = false, isConfirmed = true) }
+                    onSuccess(booking.bookingId)
+                },
+                onFailure = { error ->
+                    val msg = error.message ?: "Gagal memesan tebengan. Terjadi gangguan koneksi. Coba lagi dalam beberapa saat."
+                    _uiState.update { it.copy(isLoading = false, errorMessage = msg) }
+                    onError(msg)
+                }
+            )
         }
     }
 
-    private fun getRideById(id: String): RideItemUi {
-        val mockRides = listOf(
-            RideItemUi(
-                id = "ride_1",
-                driverName = "Andi Pratama",
-                driverGender = DriverGender.MALE,
-                vehicleModel = "Toyota Avanza Silver • B 1234 ABC",
-                vehicleType = VehicleType.CAR,
-                departureTimeFormatted = "07:30 WIB",
-                arrivalTimeFormatted = "07:55",
-                availableSeats = 2,
-                availableSeatsText = "Sisa 2 kursi",
-                facilities = listOf("Sisa 2 kursi", "AC Dingin", "Non-Smoking"),
-                driverRating = 4.9,
-                totalTrips = 120
-            ),
-            RideItemUi(
-                id = "ride_2",
-                driverName = "Reza Hendra",
-                driverGender = DriverGender.MALE,
-                vehicleModel = "Yamaha NMAX Hitam • B 5678 XYZ",
-                vehicleType = VehicleType.MOTORCYCLE,
-                departureTimeFormatted = "07:45 WIB",
-                arrivalTimeFormatted = "08:05",
-                availableSeats = 1,
-                availableSeatsText = "1 slot",
-                facilities = listOf("1 slot", "Helm SNI & Jas Hujan"),
-                driverRating = 4.8,
-                totalTrips = 85
-            ),
-            RideItemUi(
-                id = "ride_3",
-                driverName = "Bambang S.",
-                driverGender = DriverGender.MALE,
-                vehicleModel = "Toyota Innova Hitam • B 9981 BCD",
-                vehicleType = VehicleType.CAR,
-                departureTimeFormatted = "08:00 WIB",
-                arrivalTimeFormatted = "08:25",
-                availableSeats = 3,
-                availableSeatsText = "Sisa 3 kursi",
-                facilities = listOf("Sisa 3 kursi", "Bagasi Luas"),
-                driverRating = 4.9,
-                totalTrips = 210
-            )
-        )
-        return mockRides.find { it.id == id } ?: mockRides.first()
+    fun clearErrorMessage() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
 }

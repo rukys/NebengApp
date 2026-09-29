@@ -8,9 +8,9 @@ data class ChatMessage(
 )
 
 data class ChatUiState(
-    val driverName: String = "Andi Pratama",
-    val vehicleInfo: String = "Avanza Silver",
-    val pin: String = "489 201",
+    val driverName: String = "Pengemudi",
+    val vehicleInfo: String = "-",
+    val pin: String = "",
     val inputMessage: String = "",
     val messages: List<ChatMessage> = emptyList()
 )

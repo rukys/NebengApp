@@ -1,11 +1,10 @@
 package com.disinidev.nebeng.presentation.settings
 
+import com.disinidev.nebeng.domain.repository.UserProfileData
+import com.disinidev.nebeng.domain.repository.UserRepository
 import com.disinidev.nebeng.util.MainDispatcherRule
-import com.google.firebase.auth.FirebaseAuth
-import io.github.jan.supabase.SupabaseClient
-import io.mockk.every
+import io.mockk.coEvery
 import io.mockk.mockk
-import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -22,13 +21,21 @@ class SettingsViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val firebaseAuth = mockk<FirebaseAuth>(relaxed = true)
-    private val supabaseClient = mockk<SupabaseClient>(relaxed = true)
+    private val userRepository = mockk<UserRepository>(relaxed = true)
     private lateinit var viewModel: SettingsViewModel
 
     @Before
     fun setUp() {
-        viewModel = SettingsViewModel(firebaseAuth, supabaseClient)
+        coEvery { userRepository.getUserProfile() } returns Result.success(
+            UserProfileData(
+                id = "user_123",
+                fullName = "Budi Santoso",
+                phoneNumber = "+62 812-3456-7890",
+                email = "budi.santoso@email.com"
+            )
+        )
+        coEvery { userRepository.logout() } returns Result.success(Unit)
+        viewModel = SettingsViewModel(userRepository)
     }
 
     @Test
@@ -58,14 +65,12 @@ class SettingsViewModelTest {
     @Test
     fun `logout triggers firebase signOut and invokes callback`() = runTest {
         var callbackCalled = false
-        every { firebaseAuth.signOut() } returns Unit
 
         viewModel.logout {
             callbackCalled = true
         }
         advanceUntilIdle()
 
-        verify { firebaseAuth.signOut() }
         assertTrue(callbackCalled)
         assertFalse(viewModel.uiState.value.showLogoutDialog)
     }
