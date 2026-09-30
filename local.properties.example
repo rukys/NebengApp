@@ -1,0 +1,8 @@
+## SDK Location (adjust to your local Android SDK path)
+sdk.dir=/Users/username/Library/Android/sdk
+# On Windows, e.g.:
+# sdk.dir=C\:\\Users\\username\\AppData\\Local\\Android\\Sdk
+
+# Supabase Configuration
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-supabase-anon-key
