@@ -8,6 +8,8 @@ data class UserProfileData(
     val officeAddress: String? = null,
     val bio: String? = null,
     val avatarUrl: String? = null,
+    val qrisUrl: String? = null,
+    val ktpUrl: String? = null,
     val rating: Float = 5.0f,
     val totalTrips: Int = 0,
     val role: String = "both",
@@ -40,6 +42,9 @@ interface UserRepository {
     suspend fun updateUserRole(role: String): Result<Unit>
     suspend fun getUserRoleStats(role: String): Result<Pair<Int, Int>>
     suspend fun uploadAvatar(imageBytes: ByteArray, extension: String = "jpg"): Result<String>
+    suspend fun uploadKtp(imageBytes: ByteArray, extension: String = "jpg"): Result<String>
+    suspend fun uploadQris(imageBytes: ByteArray, extension: String = "jpg"): Result<String>
+    suspend fun getDriverQrisUrl(driverId: String): Result<String?>
     suspend fun syncFcmToken(token: String): Result<Unit>
     suspend fun syncFcmToken(): Result<Unit>
     suspend fun logout(): Result<Unit>

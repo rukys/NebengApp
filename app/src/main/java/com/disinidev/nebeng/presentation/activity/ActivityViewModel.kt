@@ -64,13 +64,15 @@ class ActivityViewModel @Inject constructor(
                             ActiveTrip(
                                 bookingId = item.id,
                                 statusText = statusTitle,
+                                rawStatus = item.status,
                                 pin = item.pin,
                                 driverName = item.counterpartName,
                                 vehicleModel = item.vehicleModel,
                                 licensePlate = item.licensePlate,
                                 pickupAddress = item.origin,
                                 dropoffAddress = item.destination,
-                                vehicleType = if (item.vehicleType.equals("motor", ignoreCase = true)) "motorcycle" else "car"
+                                vehicleType = if (item.vehicleType.equals("motor", ignoreCase = true)) "motorcycle" else "car",
+                                isDriver = item.isDriver
                             )
                         }
 
@@ -136,6 +138,54 @@ class ActivityViewModel @Inject constructor(
                         it.copy(
                             isCancelling = false,
                             errorMessage = "Gagal membatalkan tebengan. Terjadi gangguan koneksi. Coba lagi dalam beberapa saat."
+                        )
+                    }
+                }
+        }
+    }
+
+    fun verifyPickupPin(bookingId: String, pin: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isActionInProgress = true, errorMessage = null, successMessage = null) }
+            bookingRepository.verifyPickupPin(bookingId, pin)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isActionInProgress = false,
+                            successMessage = "PIN terverifikasi! Perjalanan tebengan dimulai."
+                        )
+                    }
+                    loadTrips()
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isActionInProgress = false,
+                            errorMessage = error.message ?: "PIN salah. Cek kembali 6-digit PIN penumpang."
+                        )
+                    }
+                }
+        }
+    }
+
+    fun completeTrip(bookingId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isActionInProgress = true, errorMessage = null, successMessage = null) }
+            bookingRepository.completeTrip(bookingId)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isActionInProgress = false,
+                            successMessage = "Perjalanan telah diselesaikan!"
+                        )
+                    }
+                    loadTrips()
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isActionInProgress = false,
+                            errorMessage = error.message ?: "Gagal menyelesaikan perjalanan."
                         )
                     }
                 }

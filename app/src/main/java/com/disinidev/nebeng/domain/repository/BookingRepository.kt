@@ -36,7 +36,8 @@ data class BookingActivityItem(
     val status: String,
     val pin: String = "",
     val vehicleModel: String = "",
-    val licensePlate: String = ""
+    val licensePlate: String = "",
+    val isDriver: Boolean = false
 )
 
 data class UserActivities(
@@ -67,4 +68,9 @@ interface BookingRepository {
     suspend fun cancelBooking(bookingId: String, reason: String? = null): Result<Unit>
 
     suspend fun getUserActivities(userUuid: String): Result<UserActivities>
+
+    suspend fun verifyPickupPin(bookingId: String, pin: String): Result<Unit>
+
+    suspend fun completeTrip(bookingId: String): Result<Unit>
 }
+

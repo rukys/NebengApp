@@ -9,13 +9,15 @@ enum class ActivityFilter(val label: String) {
 data class ActiveTrip(
     val bookingId: String,
     val statusText: String,
+    val rawStatus: String = "confirmed",
     val pin: String,
     val driverName: String,
     val vehicleModel: String,
     val licensePlate: String,
     val pickupAddress: String,
     val dropoffAddress: String,
-    val vehicleType: String = "car"
+    val vehicleType: String = "car",
+    val isDriver: Boolean = false
 )
 
 data class TripHistoryItem(
@@ -25,7 +27,8 @@ data class TripHistoryItem(
     val timeText: String,
     val vehicleType: String = "Mobil",
     val driverName: String = "",
-    val status: String = "SELESAI"
+    val status: String = "SELESAI",
+    val isDriver: Boolean = false
 )
 
 data class ActivityUiState(
@@ -37,6 +40,8 @@ data class ActivityUiState(
     val isSearchActive: Boolean = false,
     val isLoading: Boolean = false,
     val isCancelling: Boolean = false,
+    val isActionInProgress: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null
 )
+

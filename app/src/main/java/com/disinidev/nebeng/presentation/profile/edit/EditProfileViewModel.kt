@@ -41,6 +41,36 @@ class EditProfileViewModel @Inject constructor(
         }
     }
 
+    fun uploadQris(imageBytes: ByteArray) {
+        _uiState.update { it.copy(isUploadingQris = true) }
+        viewModelScope.launch {
+            userRepository.uploadQris(imageBytes)
+                .onSuccess { url ->
+                    _uiState.update { it.copy(qrisUrl = url, isUploadingQris = false) }
+                    showMessage("Foto QRIS pengemudi berhasil diperbarui!")
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isUploadingQris = false) }
+                    showMessage(e.localizedMessage ?: "Gagal mengunggah QRIS")
+                }
+        }
+    }
+
+    fun uploadKtp(imageBytes: ByteArray) {
+        _uiState.update { it.copy(isUploadingKtp = true) }
+        viewModelScope.launch {
+            userRepository.uploadKtp(imageBytes)
+                .onSuccess { url ->
+                    _uiState.update { it.copy(ktpUrl = url, isKtpVerified = true, isUploadingKtp = false) }
+                    showMessage("Foto e-KTP berhasil diunggah! Terverifikasi.")
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isUploadingKtp = false) }
+                    showMessage(e.localizedMessage ?: "Gagal mengunggah e-KTP")
+                }
+        }
+    }
+
     fun onFullNameChange(name: String) {
         val initials = name.split(" ")
             .mapNotNull { it.firstOrNull()?.toString() }
@@ -131,6 +161,10 @@ class EditProfileViewModel @Inject constructor(
                             officeBuilding = profile.officeAddress ?: current.officeBuilding,
                             bio = profile.bio ?: current.bio,
                             avatarUrl = profile.avatarUrl,
+                            qrisUrl = profile.qrisUrl,
+                            ktpUrl = profile.ktpUrl,
+                            isKtpVerified = profile.isKtpVerified,
+                            role = profile.role,
                             avatarInitials = initials.ifBlank { if (fullName.isNotBlank()) fullName.first().uppercase() else "U" }
                         )
                     }

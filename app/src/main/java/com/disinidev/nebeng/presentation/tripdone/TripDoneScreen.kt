@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -54,6 +55,7 @@ fun TripDoneScreen(
     onNavigateBack: () -> Unit,
     onSkip: () -> Unit,
     onSubmitComplete: () -> Unit,
+    onNavigateToTip: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: TripDoneViewModel = hiltViewModel()
 ) {
@@ -131,7 +133,63 @@ fun TripDoneScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Review / Feedback Input (Apresiasi & Tip di-takeout)
+            // Optional Tip / Gas Contribution Card (QRIS)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(NebengColor.Primary50)
+                    .border(1.dp, NebengColor.Gray200, RoundedCornerShape(16.dp))
+                    .clickable { onNavigateToTip(state.bookingId) }
+                    .padding(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(NebengColor.Primary900),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = null,
+                            tint = NebengColor.Primary0,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Apresiasi Pengemudi?",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NebengColor.Primary900
+                        )
+                        Text(
+                            text = "Beri kontribusi bensin langsung via QRIS pengemudi",
+                            fontSize = 12.sp,
+                            color = NebengColor.Gray600
+                        )
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "Beri Tip",
+                        tint = NebengColor.Primary900,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Review / Feedback Input
             ReviewInputCard(
                 reviewText = state.reviewText,
                 onReviewTextChanged = viewModel::onReviewTextChanged,

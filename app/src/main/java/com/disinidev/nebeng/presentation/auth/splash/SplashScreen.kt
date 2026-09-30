@@ -61,20 +61,11 @@ fun SplashScreen(
             verticalArrangement = Arrangement.Center
         ) {
             // App Logo
-            Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White)
-                    .padding(14.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_nebeng_logo),
-                    contentDescription = "Nebeng Logo",
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+            Image(
+                painter = painterResource(id = R.drawable.icon_nebeng),
+                contentDescription = "Nebeng Logo",
+                modifier = Modifier.size(96.dp)
+            )
 
             Spacer(modifier = Modifier.height(20.dp))
 

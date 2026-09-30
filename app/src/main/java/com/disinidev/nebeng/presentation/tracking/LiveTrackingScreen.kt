@@ -392,11 +392,29 @@ fun LiveTrackingScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { viewModel.showEmergencyDialog(false) }) {
-                        Text(
-                            text = "Tutup",
-                            color = NebengColor.Primary900
-                        )
+                    Row {
+                        TextButton(
+                            onClick = {
+                                viewModel.showEmergencyDialog(false)
+                                val smsIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                    data = Uri.parse("smsto:")
+                                    putExtra("sms_body", "DARURAT! Saya butuh bantuan saat perjalanan nebeng. Koordinat lokasi: https://maps.google.com/?q=${state.driverCurrentLat},${state.driverCurrentLng}")
+                                }
+                                context.startActivity(smsIntent)
+                            }
+                        ) {
+                            Text(
+                                text = "SMS Darurat",
+                                fontWeight = FontWeight.SemiBold,
+                                color = NebengColor.Primary900
+                            )
+                        }
+                        TextButton(onClick = { viewModel.showEmergencyDialog(false) }) {
+                            Text(
+                                text = "Tutup",
+                                color = NebengColor.Gray600
+                            )
+                        }
                     }
                 },
                 containerColor = NebengColor.Primary0,
@@ -407,11 +425,12 @@ fun LiveTrackingScreen(
 }
 
 private fun shareTripDetails(context: Context, state: LiveTrackingUiState) {
+    val trackingUrl = "nebeng://trip/${state.bookingId}/track"
     val sendIntent = Intent().apply {
         action = Intent.ACTION_SEND
         putExtra(
             Intent.EXTRA_TEXT,
-            "Saya sedang nebeng bersama ${state.driverName} (${state.vehicleModel} • ${state.vehiclePlate}) menuju ${state.destinationLocation}. Lacak perjalanan saya di Nebeng!"
+            "Saya sedang nebeng bersama ${state.driverName} (${state.vehicleModel} • ${state.vehiclePlate}) menuju ${state.destinationLocation}.\nLacak perjalanan langsung di Nebeng: $trackingUrl"
         )
         type = "text/plain"
     }

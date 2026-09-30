@@ -13,10 +13,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.disinidev.nebeng.domain.repository.UserRepository
+
 @HiltViewModel
 class TipViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val bookingRepository: BookingRepository
+    private val bookingRepository: BookingRepository,
+    private val userRepository: UserRepository
 ) : ViewModel() {
 
     private val bookingId: String = savedStateHandle.get<String>("bookingId") ?: ""
@@ -25,15 +28,22 @@ class TipViewModel @Inject constructor(
     val uiState: StateFlow<TipUiState> = _uiState.asStateFlow()
 
     init {
-        loadDriverName()
+        loadDriverInfo()
     }
 
-    private fun loadDriverName() {
+    private fun loadDriverInfo() {
         if (bookingId.isBlank()) return
         viewModelScope.launch {
             bookingRepository.getBookingById(bookingId)
                 .onSuccess { booking ->
                     _uiState.update { it.copy(driverName = booking.driverName.ifBlank { "Pengemudi" }) }
+                    // Also check for driver's QRIS barcode
+                    userRepository.getDriverQrisUrl(booking.driverName)
+                        .onSuccess { url ->
+                            if (!url.isNullOrBlank()) {
+                                _uiState.update { it.copy(driverQrisUrl = url) }
+                            }
+                        }
                 }
         }
     }

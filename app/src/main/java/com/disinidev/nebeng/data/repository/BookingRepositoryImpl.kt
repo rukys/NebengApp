@@ -98,6 +98,13 @@ private data class RemoteDetailUserDto(
     val full_name: String? = null
 )
 
+@Serializable
+private data class RemotePinCheckDto(
+    val id: String,
+    val pickup_pin: String,
+    val status: String
+)
+
 @Singleton
 class BookingRepositoryImpl @Inject constructor(
     private val supabaseClient: SupabaseClient,
@@ -412,6 +419,55 @@ class BookingRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun verifyPickupPin(bookingId: String, pin: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            localBookings[bookingId]?.let {
+                if (it.pickupPin.trim() != pin.trim()) {
+                    throw IllegalArgumentException("PIN penjemputan salah. Periksa kembali PIN penumpang.")
+                }
+                localBookings[bookingId] = it.copy(status = "picked_up")
+            }
+            if (runCatching { UUID.fromString(bookingId) }.isSuccess) {
+                val remote = try {
+                    supabaseClient.postgrest.from("bookings").select(
+                        columns = Columns.raw("id, pickup_pin, status")
+                    ) {
+                        filter { eq("id", bookingId) }
+                    }.decodeSingleOrNull<RemotePinCheckDto>()
+                } catch (e: Exception) {
+                    null
+                }
+
+                if (remote != null && remote.pickup_pin.trim() != pin.trim()) {
+                    throw IllegalArgumentException("PIN penjemputan salah. Periksa kembali PIN penumpang.")
+                }
+
+                supabaseClient.postgrest.from("bookings").update(
+                    mapOf("status" to "picked_up")
+                ) {
+                    filter { eq("id", bookingId) }
+                }
+            }
+            Unit
+        }
+    }
+
+    override suspend fun completeTrip(bookingId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            localBookings[bookingId]?.let {
+                localBookings[bookingId] = it.copy(status = "completed")
+            }
+            if (runCatching { UUID.fromString(bookingId) }.isSuccess) {
+                supabaseClient.postgrest.from("bookings").update(
+                    mapOf("status" to "completed")
+                ) {
+                    filter { eq("id", bookingId) }
+                }
+            }
+            Unit
+        }
+    }
+
     override suspend fun getUserActivities(userUuid: String): Result<UserActivities> = withContext(Dispatchers.IO) {
         runCatching {
             val dateFormatter = DateTimeFormatter.ofPattern("d MMM, HH:mm").withZone(ZoneId.of("Asia/Jakarta"))
@@ -456,7 +512,7 @@ class BookingRepositoryImpl @Inject constructor(
             val allBookings = passengerBookings + driverBookings
             if (allBookings.isNotEmpty()) {
                 val ongoing = allBookings.firstOrNull { it.status in listOf("pending", "confirmed", "picked_up") }
-                val completed = allBookings.filter { it.status == "done" }
+                val completed = allBookings.filter { it.status in listOf("done", "completed") }
                 val cancelled = allBookings.filter { it.status == "cancelled" }
 
                 val activeItem = ongoing?.let { b ->
@@ -477,7 +533,8 @@ class BookingRepositoryImpl @Inject constructor(
                         status = b.status,
                         pin = b.pickup_pin,
                         vehicleModel = b.rides?.vehicle_model ?: "-",
-                        licensePlate = b.rides?.vehicle_plate ?: "-"
+                        licensePlate = b.rides?.vehicle_plate ?: "-",
+                        isDriver = isDriver
                     )
                 }
 
@@ -496,7 +553,8 @@ class BookingRepositoryImpl @Inject constructor(
                         counterpartName = counterpartName,
                         status = "SELESAI",
                         vehicleModel = b.rides?.vehicle_model ?: "",
-                        licensePlate = b.rides?.vehicle_plate ?: ""
+                        licensePlate = b.rides?.vehicle_plate ?: "",
+                        isDriver = isDriver
                     )
                 }
 
@@ -515,7 +573,8 @@ class BookingRepositoryImpl @Inject constructor(
                         counterpartName = counterpartName,
                         status = "DIBATALKAN",
                         vehicleModel = b.rides?.vehicle_model ?: "",
-                        licensePlate = b.rides?.vehicle_plate ?: ""
+                        licensePlate = b.rides?.vehicle_plate ?: "",
+                        isDriver = isDriver
                     )
                 }
 

@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -170,6 +172,51 @@ fun TipScreen(
                 )
 
                 Spacer(modifier = Modifier.height(NebengSpacing.Xxl))
+
+                if (!state.driverQrisUrl.isNullOrBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(NebengColor.Primary50)
+                            .border(1.dp, NebengColor.Gray200, RoundedCornerShape(16.dp))
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "QRIS Pengemudi",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NebengColor.Primary900
+                            )
+                            Text(
+                                text = "Buka mobile banking atau e-wallet kamu untuk scan langsung",
+                                fontSize = 12.sp,
+                                color = NebengColor.Gray600,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(220.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(NebengColor.Primary0)
+                                    .border(1.dp, NebengColor.Gray200, RoundedCornerShape(12.dp))
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AsyncImage(
+                                    model = state.driverQrisUrl,
+                                    contentDescription = "QRIS Driver",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(NebengSpacing.Lg))
+                }
 
                 // Preset grid: 3 x 2
                 TipPresetGrid(

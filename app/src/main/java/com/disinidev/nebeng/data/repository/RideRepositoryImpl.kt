@@ -41,11 +41,24 @@ private data class RemoteRideDto(
     val available_seats: Int,
     val pickup_address: String,
     val dropoff_address: String,
+    val pickup_location: String? = null,
+    val dropoff_location: String? = null,
     val departure_time: String,
     val status: String,
     val notes: String? = null,
     val users: RemoteDriverDto? = null
 )
+
+private fun parseWktPoint(wkt: String?, defaultLat: Double, defaultLng: Double): Pair<Double, Double> {
+    if (wkt == null) return Pair(defaultLat, defaultLng)
+    val match = Regex("""POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)""").find(wkt)
+    return if (match != null) {
+        val (lng, lat) = match.destructured
+        Pair(lat.toDoubleOrNull() ?: defaultLat, lng.toDoubleOrNull() ?: defaultLng)
+    } else {
+        Pair(defaultLat, defaultLng)
+    }
+}
 
 @Serializable
 private data class RemoteDriverDto(
@@ -119,7 +132,7 @@ class RideRepositoryImpl @Inject constructor(
             val remoteList = supabaseClient.postgrest["rides"].select(
                 columns = Columns.raw(
                     "id, driver_id, vehicle_brand, vehicle_model, vehicle_plate, vehicle_type, " +
-                    "max_passengers, available_seats, pickup_address, dropoff_address, departure_time, status, notes, " +
+                    "max_passengers, available_seats, pickup_address, dropoff_address, pickup_location, dropoff_location, departure_time, status, notes, " +
                     "users!rides_driver_id_fkey(id, full_name, avatar_url, average_rating, total_trips)"
                 )
             ) {
@@ -156,11 +169,11 @@ class RideRepositoryImpl @Inject constructor(
                     maxPassengers = dto.max_passengers,
                     availableSeats = dto.available_seats,
                     pickupAddress = dto.pickup_address,
-                    pickupLat = -6.2297,
-                    pickupLng = 106.8580,
+                    pickupLat = parseWktPoint(dto.pickup_location, -6.2297, 106.8580).first,
+                    pickupLng = parseWktPoint(dto.pickup_location, -6.2297, 106.8580).second,
                     dropoffAddress = dto.dropoff_address,
-                    dropoffLat = -6.2250,
-                    dropoffLng = 106.8097,
+                    dropoffLat = parseWktPoint(dto.dropoff_location, -6.2250, 106.8097).first,
+                    dropoffLng = parseWktPoint(dto.dropoff_location, -6.2250, 106.8097).second,
                     departureTime = depInstant,
                     status = RideStatus.AVAILABLE,
                     notes = dto.notes

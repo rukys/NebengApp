@@ -7,6 +7,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
@@ -39,7 +40,9 @@ private data class FullUserProfileDto(
     val average_rating: Float? = null,
     val total_trips: Int? = null,
     val role: String? = null,
-    val ktp_verified: Boolean? = null
+    val ktp_verified: Boolean? = null,
+    val qris_url: String? = null,
+    val ktp_url: String? = null
 )
 
 @Serializable
@@ -160,6 +163,8 @@ class UserRepositoryImpl @Inject constructor(
                 officeAddress = dto?.office_address,
                 bio = dto?.bio,
                 avatarUrl = dto?.avatar_url,
+                qrisUrl = dto?.qris_url,
+                ktpUrl = dto?.ktp_url,
                 rating = dto?.average_rating ?: 5.0f,
                 totalTrips = dto?.total_trips ?: 0,
                 role = dto?.role ?: "both",
@@ -272,6 +277,68 @@ class UserRepositoryImpl @Inject constructor(
                 }
             }
             publicUrl
+        }
+    }
+
+    override suspend fun uploadKtp(imageBytes: ByteArray, extension: String): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val userUuid = getCurrentUserUuid()
+            val fileName = "$userUuid/ktp_${System.currentTimeMillis()}.$extension"
+
+            val bucket = supabaseClient.storage.from("ktp-documents")
+            bucket.upload(path = fileName, data = imageBytes) {
+                upsert = true
+            }
+            val publicUrl = bucket.publicUrl(fileName)
+
+            try {
+                supabaseClient.postgrest["users"].update(
+                    mapOf(
+                        "ktp_url" to publicUrl,
+                        "ktp_verified" to true
+                    )
+                ) {
+                    filter { eq("id", userUuid) }
+                }
+            } catch (_: Exception) {
+                supabaseClient.postgrest["users"].update(
+                    mapOf("ktp_verified" to true)
+                ) {
+                    filter { eq("id", userUuid) }
+                }
+            }
+            publicUrl
+        }
+    }
+
+    override suspend fun uploadQris(imageBytes: ByteArray, extension: String): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val userUuid = getCurrentUserUuid()
+            val fileName = "$userUuid/qris_${System.currentTimeMillis()}.$extension"
+
+            val bucket = supabaseClient.storage.from("qris-images")
+            bucket.upload(path = fileName, data = imageBytes) {
+                upsert = true
+            }
+            val publicUrl = bucket.publicUrl(fileName)
+
+            supabaseClient.postgrest["users"].update(
+                mapOf("qris_url" to publicUrl)
+            ) {
+                filter { eq("id", userUuid) }
+            }
+            publicUrl
+        }
+    }
+
+    override suspend fun getDriverQrisUrl(driverId: String): Result<String?> = withContext(Dispatchers.IO) {
+        runCatching {
+            val user = supabaseClient.postgrest["users"].select(
+                columns = Columns.raw("qris_url")
+            ) {
+                filter { eq("id", driverId) }
+            }.decodeSingleOrNull<Map<String, String?>>()
+            user?.get("qris_url")
         }
     }
 

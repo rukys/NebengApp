@@ -575,6 +575,9 @@ fun NebengNavGraph(
                     navController.navigate(NavDestination.Home) {
                         popUpTo(NavDestination.Home) { inclusive = true }
                     }
+                },
+                onNavigateToTip = { bookingId ->
+                    navController.navigate(NavDestination.Tip(bookingId = bookingId))
                 }
             )
         }

@@ -30,6 +30,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material3.Icon
@@ -75,6 +78,30 @@ fun EditProfileScreen(
             runCatching {
                 context.contentResolver.openInputStream(it)?.use { stream ->
                     viewModel.uploadAvatar(stream.readBytes())
+                }
+            }
+        }
+    }
+
+    val ktpLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            runCatching {
+                context.contentResolver.openInputStream(it)?.use { stream ->
+                    viewModel.uploadKtp(stream.readBytes())
+                }
+            }
+        }
+    }
+
+    val qrisLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            runCatching {
+                context.contentResolver.openInputStream(it)?.use { stream ->
+                    viewModel.uploadQris(stream.readBytes())
                 }
             }
         }
@@ -361,6 +388,158 @@ fun EditProfileScreen(
                     cursorBrush = SolidColor(NebengColor.Primary900),
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Field 6: Dokumen Identitas e-KTP
+            EditFieldLabel(text = "VERIFIKASI IDENTITAS E-KTP")
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(NebengColor.Primary50)
+                    .border(1.dp, NebengColor.Gray200, RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(NebengColor.Primary900),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Badge,
+                            contentDescription = null,
+                            tint = NebengColor.Primary0,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (state.isKtpVerified) "e-KTP Terverifikasi" else "e-KTP Belum Diunggah",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NebengColor.Primary900
+                        )
+                        Text(
+                            text = if (state.isKtpVerified) "Foto KTP tersimpan aman untuk verifikasi komunitas" else "Wajib untuk jaminan keamanan antar-komuter",
+                            fontSize = 11.sp,
+                            color = NebengColor.Gray600
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (state.isKtpVerified) NebengColor.Primary900 else NebengColor.Primary0)
+                            .border(1.dp, NebengColor.Primary900, RoundedCornerShape(8.dp))
+                            .clickable { ktpLauncher.launch("image/*") }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = if (state.isUploadingKtp) "Mengunggah..." else if (state.isKtpVerified) "Ubah KTP" else "Unggah KTP",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (state.isKtpVerified) NebengColor.Primary0 else NebengColor.Primary900
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Field 7: QRIS Pengemudi (Apresiasi Bensin)
+            EditFieldLabel(text = "KODE QRIS APRESIASI BENSIN (DRIVER)")
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(NebengColor.Primary50)
+                    .border(1.dp, NebengColor.Gray200, RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(NebengColor.Primary900),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.QrCode,
+                                contentDescription = null,
+                                tint = NebengColor.Primary0,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (state.qrisUrl != null) "QRIS Terdaftar" else "Belum Ada QRIS",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NebengColor.Primary900
+                            )
+                            Text(
+                                text = "Untuk menerima tip apresiasi bensin langsung dari penumpang",
+                                fontSize = 11.sp,
+                                color = NebengColor.Gray600
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (state.qrisUrl != null) NebengColor.Primary900 else NebengColor.Primary0)
+                                .border(1.dp, NebengColor.Primary900, RoundedCornerShape(8.dp))
+                                .clickable { qrisLauncher.launch("image/*") }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = if (state.isUploadingQris) "Mengunggah..." else if (state.qrisUrl != null) "Ubah QRIS" else "Unggah QRIS",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (state.qrisUrl != null) NebengColor.Primary0 else NebengColor.Primary900
+                            )
+                        }
+                    }
+
+                    if (state.qrisUrl != null) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(NebengColor.Primary0)
+                                .border(1.dp, NebengColor.Gray200, RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = state.qrisUrl,
+                                contentDescription = "Barcode QRIS Pengemudi",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize().padding(8.dp)
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))

@@ -8,6 +8,13 @@ data class EditProfileUiState(
     val bio: String = "",
     val avatarInitials: String = "",
     val avatarUrl: String? = null,
+    val qrisUrl: String? = null,
+    val ktpUrl: String? = null,
+    val isKtpVerified: Boolean = false,
+    val role: String = "both",
     val isSaving: Boolean = false,
+    val isUploadingQris: Boolean = false,
+    val isUploadingKtp: Boolean = false,
     val message: String? = null
 )
+

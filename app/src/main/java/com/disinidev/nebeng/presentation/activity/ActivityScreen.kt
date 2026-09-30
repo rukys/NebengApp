@@ -61,6 +61,7 @@ import com.disinidev.nebeng.core.component.NebengBottomNav
 import com.disinidev.nebeng.core.component.NebengButton
 import com.disinidev.nebeng.core.component.NebengButtonSize
 import com.disinidev.nebeng.core.component.NebengButtonStyle
+import com.disinidev.nebeng.core.component.NebengTextField
 import com.disinidev.nebeng.core.component.NebengTab
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
@@ -77,6 +78,9 @@ fun ActivityScreen(
     val state by viewModel.uiState.collectAsState()
     var isRequestsSheetOpen by remember { mutableStateOf(false) }
     var bookingToCancel by remember { mutableStateOf<String?>(null) }
+    var showVerifyPinDialog by remember { mutableStateOf(false) }
+    var pinInputText by remember { mutableStateOf("") }
+    var showCompleteTripDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.errorMessage, state.successMessage) {
@@ -196,7 +200,10 @@ fun ActivityScreen(
                             activeTrip = activeTrip,
                             onTrackClick = { onNavigateToLiveTracking(activeTrip.bookingId) },
                             onCancelClick = { bookingToCancel = activeTrip.bookingId },
-                            isCancelling = state.isCancelling
+                            onVerifyPinClick = { showVerifyPinDialog = true },
+                            onCompleteTripClick = { showCompleteTripDialog = true },
+                            isCancelling = state.isCancelling,
+                            isActionInProgress = state.isActionInProgress
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                     } else {
@@ -282,6 +289,114 @@ fun ActivityScreen(
                 viewModel.cancelActiveTrip(id, reasonText)
             },
             isCancelling = state.isCancelling
+        )
+    }
+
+    if (showVerifyPinDialog && state.activeTrip != null) {
+        val activeTrip = state.activeTrip!!
+        AlertDialog(
+            onDismissRequest = {
+                showVerifyPinDialog = false
+                pinInputText = ""
+            },
+            title = {
+                Text(
+                    text = "Verifikasi PIN Penumpang",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = NebengColor.Primary900
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Minta 6-digit PIN dari penumpang (${activeTrip.driverName}) untuk memastikan penumpang sudah naik kendaraan.",
+                        fontSize = 13.sp,
+                        color = NebengColor.Gray600
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    NebengTextField(
+                        value = pinInputText,
+                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) pinInputText = it },
+                        placeholder = "Masukkan 6 Digit PIN",
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                NebengButton(
+                    text = "Mulai Perjalanan",
+                    onClick = {
+                        val pin = pinInputText.trim()
+                        if (pin.length == 6) {
+                            showVerifyPinDialog = false
+                            pinInputText = ""
+                            viewModel.verifyPickupPin(activeTrip.bookingId, pin)
+                        }
+                    },
+                    enabled = pinInputText.length == 6 && !state.isActionInProgress,
+                    isLoading = state.isActionInProgress,
+                    style = NebengButtonStyle.PRIMARY,
+                    size = NebengButtonSize.SMALL
+                )
+            },
+            dismissButton = {
+                NebengButton(
+                    text = "Batal",
+                    onClick = {
+                        showVerifyPinDialog = false
+                        pinInputText = ""
+                    },
+                    style = NebengButtonStyle.GHOST,
+                    size = NebengButtonSize.SMALL
+                )
+            },
+            containerColor = NebengColor.Primary0,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    if (showCompleteTripDialog && state.activeTrip != null) {
+        val activeTrip = state.activeTrip!!
+        AlertDialog(
+            onDismissRequest = { showCompleteTripDialog = false },
+            title = {
+                Text(
+                    text = "Selesaikan Perjalanan?",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = NebengColor.Primary900
+                )
+            },
+            text = {
+                Text(
+                    text = "Pastikan penumpang telah sampai di tujuan (${activeTrip.dropoffAddress}) dengan aman.",
+                    fontSize = 13.sp,
+                    color = NebengColor.Gray600
+                )
+            },
+            confirmButton = {
+                NebengButton(
+                    text = "Ya, Selesaikan",
+                    onClick = {
+                        showCompleteTripDialog = false
+                        viewModel.completeTrip(activeTrip.bookingId)
+                    },
+                    isLoading = state.isActionInProgress,
+                    style = NebengButtonStyle.PRIMARY,
+                    size = NebengButtonSize.SMALL
+                )
+            },
+            dismissButton = {
+                NebengButton(
+                    text = "Batal",
+                    onClick = { showCompleteTripDialog = false },
+                    style = NebengButtonStyle.GHOST,
+                    size = NebengButtonSize.SMALL
+                )
+            },
+            containerColor = NebengColor.Primary0,
+            shape = RoundedCornerShape(16.dp)
         )
     }
 }
@@ -474,7 +589,10 @@ private fun ActiveTripCard(
     activeTrip: ActiveTrip,
     onTrackClick: () -> Unit,
     onCancelClick: () -> Unit,
+    onVerifyPinClick: () -> Unit,
+    onCompleteTripClick: () -> Unit,
     isCancelling: Boolean,
+    isActionInProgress: Boolean,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -514,7 +632,11 @@ private fun ActiveTripCard(
                     .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "PIN: ${activeTrip.pin}",
+                    text = if (activeTrip.isDriver) {
+                        if (activeTrip.rawStatus == "picked_up") "Dalam Perjalanan" else "Tunggu Penumpang"
+                    } else {
+                        "PIN: ${activeTrip.pin}"
+                    },
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = NebengColor.Primary0
@@ -524,7 +646,7 @@ private fun ActiveTripCard(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Driver & Vehicle
+        // Driver / Passenger & Vehicle
         Text(
             text = "${activeTrip.driverName} • ${activeTrip.vehicleModel} ${activeTrip.licensePlate}",
             fontSize = 15.sp,
@@ -543,26 +665,59 @@ private fun ActiveTripCard(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Track Button
-        NebengButton(
-            text = "Lacak Posisi Driver",
-            onClick = onTrackClick,
-            style = NebengButtonStyle.PRIMARY,
-            trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
-            modifier = Modifier.fillMaxWidth()
-        )
+        if (activeTrip.isDriver) {
+            if (activeTrip.rawStatus == "confirmed") {
+                NebengButton(
+                    text = "Verifikasi PIN Penumpang (Mulai)",
+                    onClick = onVerifyPinClick,
+                    enabled = !isActionInProgress,
+                    isLoading = isActionInProgress,
+                    style = NebengButtonStyle.PRIMARY,
+                    trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                NebengButton(
+                    text = if (isCancelling) "Membatalkan tebengan..." else "Batalkan tebengan",
+                    onClick = onCancelClick,
+                    enabled = !isCancelling,
+                    isLoading = isCancelling,
+                    style = NebengButtonStyle.SECONDARY,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else if (activeTrip.rawStatus == "picked_up") {
+                NebengButton(
+                    text = "Selesaikan Perjalanan",
+                    onClick = onCompleteTripClick,
+                    enabled = !isActionInProgress,
+                    isLoading = isActionInProgress,
+                    style = NebengButtonStyle.PRIMARY,
+                    trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        } else {
+            // Passenger Actions
+            NebengButton(
+                text = "Lacak Posisi Driver",
+                onClick = onTrackClick,
+                style = NebengButtonStyle.PRIMARY,
+                trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        // Cancel Button (UX Writing: sentence case, active imperative)
-        NebengButton(
-            text = if (isCancelling) "Membatalkan tebengan..." else "Batalkan tebengan",
-            onClick = onCancelClick,
-            enabled = !isCancelling,
-            isLoading = isCancelling,
-            style = NebengButtonStyle.SECONDARY,
-            modifier = Modifier.fillMaxWidth()
-        )
+            // Cancel Button (UX Writing: sentence case, active imperative)
+            NebengButton(
+                text = if (isCancelling) "Membatalkan tebengan..." else "Batalkan tebengan",
+                onClick = onCancelClick,
+                enabled = !isCancelling,
+                isLoading = isCancelling,
+                style = NebengButtonStyle.SECONDARY,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 

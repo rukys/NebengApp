@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -282,6 +283,14 @@ private fun ChatBubbleItem(
     }
 }
 
+private val QUICK_REPLIES = listOf(
+    "Saya sudah di titik jemput 👍",
+    "Sedang jalan ke lobi / gerbang",
+    "Bawa helm sendiri 🛵",
+    "Tolong tunggu sekitar 2 menit ya",
+    "Sudah sampai di mana ya?"
+)
+
 @Composable
 private fun ChatInputBar(
     inputText: String,
@@ -289,15 +298,41 @@ private fun ChatInputBar(
     onSendClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Text Input Field Container
-        Box(
+    Column(modifier = modifier) {
+        // Quick Reply Chips
+        LazyRow(
             modifier = Modifier
-                .weight(1f)
-                .height(48.dp)
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(QUICK_REPLIES) { reply ->
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(NebengRadius.Full))
+                        .background(NebengColor.Primary50)
+                        .clickable { onInputChange(reply) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = reply,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = NebengColor.Primary900
+                    )
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Text Input Field Container
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
                 .clip(RoundedCornerShape(NebengRadius.Full))
                 .background(NebengColor.Primary50)
                 .padding(horizontal = 18.dp),
@@ -351,6 +386,7 @@ private fun ChatInputBar(
             )
         }
     }
+}
 }
 
 @Composable
