@@ -1,0 +1,48 @@
+package com.disinidev.nebeng.presentation.auth.splash
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.disinidev.nebeng.domain.repository.AuthRepository
+import com.disinidev.nebeng.domain.repository.UserPreferencesRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+sealed interface SplashUiState {
+    data object Loading : SplashUiState
+    data object NavigateToHome : SplashUiState
+    data object NavigateToLogin : SplashUiState
+    data object NavigateToOnboarding : SplashUiState
+}
+
+@HiltViewModel
+class SplashViewModel @Inject constructor(
+    private val authRepository: AuthRepository,
+    private val userPreferencesRepository: UserPreferencesRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow<SplashUiState>(SplashUiState.Loading)
+    val uiState: StateFlow<SplashUiState> = _uiState.asStateFlow()
+
+    init {
+        checkAuthState()
+    }
+
+    private fun checkAuthState() {
+        viewModelScope.launch {
+            // Tampilkan splash screen 2 detik sesuai UX pattern
+            delay(2000)
+            if (authRepository.isLoggedIn()) {
+                _uiState.value = SplashUiState.NavigateToHome
+            } else if (userPreferencesRepository.isOnboardingCompleted()) {
+                _uiState.value = SplashUiState.NavigateToLogin
+            } else {
+                _uiState.value = SplashUiState.NavigateToOnboarding
+            }
+        }
+    }
+}

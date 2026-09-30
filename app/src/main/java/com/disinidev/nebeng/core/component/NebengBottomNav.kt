@@ -1,0 +1,118 @@
+package com.disinidev.nebeng.core.component
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.disinidev.nebeng.core.designsystem.NebengColor
+
+enum class NebengTab(
+    val label: String,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector
+) {
+    BERANDA("Beranda", Icons.Filled.Home, Icons.Outlined.Home),
+    AKTIVITAS("Aktivitas", Icons.Filled.DirectionsCar, Icons.Outlined.DirectionsCar),
+    PESAN("Pesan", Icons.Filled.ChatBubble, Icons.Outlined.ChatBubbleOutline),
+    AKUN("Akun", Icons.Filled.Person, Icons.Outlined.PersonOutline);
+
+    val icon: ImageVector get() = selectedIcon
+}
+
+@Composable
+fun NebengBottomNav(
+    selectedTab: NebengTab,
+    onTabSelected: (NebengTab) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = NebengColor.Primary0,
+        shadowElevation = 8.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .height(64.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            NebengTab.entries.forEach { tab ->
+                val isSelected = tab == selectedTab
+                val tint by animateColorAsState(
+                    targetValue = if (isSelected) NebengColor.Primary900 else NebengColor.Gray400,
+                    animationSpec = tween(durationMillis = 200),
+                    label = "bottomNavTint_${tab.name}"
+                )
+                val iconScale by animateFloatAsState(
+                    targetValue = if (isSelected) 1.08f else 1.0f,
+                    animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+                    label = "bottomNavScale_${tab.name}"
+                )
+                val icon = if (isSelected) tab.selectedIcon else tab.unselectedIcon
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable { onTabSelected(tab) }
+                        .padding(vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = tab.label,
+                        tint = tint,
+                        modifier = Modifier
+                            .size(22.dp)
+                            .graphicsLayer {
+                                scaleX = iconScale
+                                scaleY = iconScale
+                            }
+                    )
+                    Text(
+                        text = tab.label,
+                        fontSize = 11.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = tint,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
