@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -29,14 +31,20 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.Manifest
 import android.os.Build
@@ -71,6 +79,19 @@ fun HomeScreen(
     onTabSelected: (NebengTab) -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadUnreadNotificationCount()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -101,6 +122,7 @@ fun HomeScreen(
                 greeting = state.userGreeting,
                 location = state.userLocation,
                 initials = state.userAvatarInitials,
+                unreadNotificationCount = state.unreadNotificationCount,
                 onNotificationClick = onNavigateToNotifications,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -230,6 +252,7 @@ private fun HomeHeader(
     greeting: String,
     location: String,
     initials: String,
+    unreadNotificationCount: Int,
     onNotificationClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -279,21 +302,49 @@ private fun HomeHeader(
             }
         }
 
-        // Circular Bell Button
+        // Circular Bell Button with Badge Count
         Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(NebengColor.Primary50)
-                .clickable(onClick = onNotificationClick),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.TopEnd
         ) {
-            Icon(
-                imageVector = Icons.Default.NotificationsNone,
-                contentDescription = "Notifikasi",
-                tint = NebengColor.Primary900,
-                modifier = Modifier.size(22.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(NebengColor.Primary50)
+                    .clickable(onClick = onNotificationClick),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.NotificationsNone,
+                    contentDescription = "Notifikasi",
+                    tint = NebengColor.Primary900,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            if (unreadNotificationCount > 0) {
+                Box(
+                    modifier = Modifier
+                        .offset(x = 4.dp, y = (-2).dp)
+                        .defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
+                        .background(
+                            color = NebengColor.Danger600,
+                            shape = CircleShape
+                        )
+                        .border(1.5.dp, NebengColor.Primary0, CircleShape)
+                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (unreadNotificationCount > 99) "99+" else unreadNotificationCount.toString(),
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 10.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
         }
     }
 }

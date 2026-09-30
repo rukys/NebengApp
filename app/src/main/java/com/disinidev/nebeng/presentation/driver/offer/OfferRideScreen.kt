@@ -1,6 +1,10 @@
 package com.disinidev.nebeng.presentation.driver.offer
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.LocationOn
@@ -42,36 +47,62 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.disinidev.nebeng.core.component.NebengButton
+import com.disinidev.nebeng.core.component.PlaceSuggestionsCard
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
 import com.disinidev.nebeng.domain.model.PlaceSuggestion
+import com.disinidev.nebeng.presentation.search.form.ActiveSearchField
 
 @Composable
 fun OfferRideScreen(
     modifier: Modifier = Modifier,
     viewModel: OfferRideViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit = {},
-    onPublishSuccess: () -> Unit = {}
+    onPublishSuccess: () -> Unit = {},
+    onNavigateToVehicleManagement: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
 
-    LaunchedEffect(Unit) {
-        viewModel.loadSavedVehicles()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner.lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadSavedVehicles()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     Scaffold(
@@ -117,23 +148,29 @@ fun OfferRideScreen(
                 .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            // Error banner if any
-            if (state.errorMessage != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(NebengRadius.Md))
-                        .background(NebengColor.Danger100)
-                        .border(1.dp, NebengColor.Danger600.copy(alpha = 0.5f), RoundedCornerShape(NebengRadius.Md))
-                        .padding(12.dp)
-                ) {
-                    Text(
-                        text = state.errorMessage ?: "",
-                        fontSize = 13.sp,
-                        color = NebengColor.Danger600
-                    )
+            // Error banner with fluid animation
+            AnimatedVisibility(
+                visible = state.errorMessage != null,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                state.errorMessage?.let { errorMsg ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 14.dp)
+                            .clip(RoundedCornerShape(NebengRadius.Md))
+                            .background(NebengColor.Danger100)
+                            .border(1.dp, NebengColor.Danger600.copy(alpha = 0.5f), RoundedCornerShape(NebengRadius.Md))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = errorMsg,
+                            fontSize = 13.sp,
+                            color = NebengColor.Danger600
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.height(14.dp))
             }
 
             // 1. Vehicle Type Selector (Mobil vs Motor)
@@ -187,6 +224,11 @@ fun OfferRideScreen(
                 dropoffAddress = state.dropoffAddress,
                 onPickupChange = viewModel::onPickupChange,
                 onDropoffChange = viewModel::onDropoffChange,
+                onClearPickup = viewModel::onClearPickup,
+                onClearDropoff = viewModel::onClearDropoff,
+                onPickupFocus = viewModel::onPickupFocus,
+                onDropoffFocus = viewModel::onDropoffFocus,
+                activeField = state.activeField,
                 suggestions = state.suggestions,
                 isSearching = state.isSearchingPlaces,
                 onSelectSuggestion = viewModel::selectSuggestion,
@@ -343,58 +385,156 @@ fun OfferRideScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (state.savedVehicles.isNotEmpty()) {
-                    Text(
-                        text = "Pilih dari Kendaraan Terdaftar",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = NebengColor.Gray600
-                    )
+                val targetType = VehicleType.fromString(state.vehicleType)
+                val isMotorcycle = targetType == VehicleType.MOTORCYCLE
+                val filteredVehicles = remember(state.savedVehicles, targetType) {
+                    state.savedVehicles.filter { it.type == targetType }
+                }
+                val vehicleTypeName = if (isMotorcycle) "Motor" else "Mobil"
+
+                if (filteredVehicles.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Pilih $vehicleTypeName Terdaftar",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = NebengColor.Gray600
+                        )
+                        Text(
+                            text = "+ Tambah",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NebengColor.Primary900,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(NebengRadius.Sm))
+                                .clickable(onClick = onNavigateToVehicleManagement)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        state.savedVehicles.forEach { vehicle ->
+                        filteredVehicles.forEach { vehicle ->
                             val isSelected = vehicle.id == state.selectedVehicleId
-                            val isCar = vehicle.type == VehicleType.CAR
                             Row(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(NebengRadius.Md))
                                     .background(if (isSelected) NebengColor.Primary900 else NebengColor.Primary0)
                                     .border(
-                                        width = 1.dp,
+                                        width = if (isSelected) 1.5.dp else 1.dp,
                                         color = if (isSelected) NebengColor.Primary900 else NebengColor.Gray200,
                                         shape = RoundedCornerShape(NebengRadius.Md)
                                     )
                                     .clickable { viewModel.selectSavedVehicle(vehicle) }
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = if (isCar) Icons.Default.DirectionsCar else Icons.Default.TwoWheeler,
-                                    contentDescription = null,
-                                    tint = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        text = "${vehicle.brand} ${vehicle.model}",
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isSelected) NebengColor.Primary0.copy(alpha = 0.15f) else NebengColor.Primary50),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (isMotorcycle) Icons.Default.TwoWheeler else Icons.Default.DirectionsCar,
+                                        contentDescription = null,
+                                        tint = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900,
+                                        modifier = Modifier.size(18.dp)
                                     )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "${vehicle.brand} ${vehicle.model}",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900
+                                        )
+                                        if (isSelected) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Terpilih",
+                                                tint = NebengColor.Primary0,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = vehicle.plate,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) NebengColor.Gray400 else NebengColor.Gray600
+                                        text = buildString {
+                                            append(vehicle.plate)
+                                            if (!vehicle.color.isNullOrBlank()) {
+                                                append(" • ${vehicle.color}")
+                                            }
+                                        },
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = if (isSelected) NebengColor.Primary0.copy(alpha = 0.75f) else NebengColor.Gray600
                                     )
                                 }
                             }
                         }
+                    }
+                    HorizontalDivider(
+                        color = NebengColor.Gray200,
+                        thickness = 0.5.dp,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(NebengRadius.Md))
+                            .background(NebengColor.Primary0)
+                            .border(1.dp, NebengColor.Gray200, RoundedCornerShape(NebengRadius.Md))
+                            .clickable(onClick = onNavigateToVehicleManagement)
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(NebengColor.Primary50),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isMotorcycle) Icons.Default.TwoWheeler else Icons.Default.DirectionsCar,
+                                contentDescription = null,
+                                tint = NebengColor.Gray600,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Belum ada $vehicleTypeName di Kendaraan Saya",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = NebengColor.Primary900
+                            )
+                            Text(
+                                text = "Ketuk untuk tambah di profil atau isi manual di bawah",
+                                fontSize = 11.sp,
+                                color = NebengColor.Gray400
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Tambah",
+                            tint = NebengColor.Primary900,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                     HorizontalDivider(
                         color = NebengColor.Gray200,
@@ -613,54 +753,113 @@ private fun DriverRouteInputCard(
     dropoffAddress: String,
     onPickupChange: (String) -> Unit,
     onDropoffChange: (String) -> Unit,
+    onClearPickup: () -> Unit,
+    onClearDropoff: () -> Unit,
+    onPickupFocus: () -> Unit,
+    onDropoffFocus: () -> Unit,
+    activeField: ActiveSearchField,
     suggestions: List<PlaceSuggestion>,
     isSearching: Boolean,
     onSelectSuggestion: (PlaceSuggestion) -> Unit,
-    onDismissSuggestions: () -> Unit
+    onDismissSuggestions: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    var pickupWidthPx by remember { mutableIntStateOf(0) }
+    var pickupHeightPx by remember { mutableIntStateOf(0) }
+    var dropoffWidthPx by remember { mutableIntStateOf(0) }
+    var dropoffHeightPx by remember { mutableIntStateOf(0) }
+
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(NebengRadius.Lg))
             .background(NebengColor.Primary50)
             .border(1.dp, NebengColor.Gray200, RoundedCornerShape(NebengRadius.Lg))
             .padding(14.dp)
     ) {
-        // 1. Pickup Input
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+        // 1. Pickup Input Box with Dropdown Popup
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { coordinates ->
+                    pickupWidthPx = coordinates.size.width
+                    pickupHeightPx = coordinates.size.height
+                }
         ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF2E7D32)) // Green dot
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            BasicTextField(
-                value = pickupAddress,
-                onValueChange = onPickupChange,
-                textStyle = TextStyle(
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = NebengColor.Primary900
-                ),
-                decorationBox = { innerTextField ->
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        if (pickupAddress.isEmpty()) {
-                            Text(
-                                text = "Titik Keberangkatan / Jemput",
-                                fontSize = 14.sp,
-                                color = NebengColor.Gray400
-                            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF2E7D32)) // Green dot
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                BasicTextField(
+                    value = pickupAddress,
+                    onValueChange = onPickupChange,
+                    textStyle = TextStyle(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = NebengColor.Primary900
+                    ),
+                    cursorBrush = SolidColor(NebengColor.Primary900),
+                    decorationBox = { innerTextField ->
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            if (pickupAddress.isEmpty()) {
+                                Text(
+                                    text = "Titik Keberangkatan / Jemput",
+                                    fontSize = 14.sp,
+                                    color = NebengColor.Gray400
+                                )
+                            }
+                            innerTextField()
                         }
-                        innerTextField()
+                    },
+                    singleLine = true,
+                    modifier = Modifier
+                        .weight(1f)
+                        .onFocusChanged { if (it.isFocused) onPickupFocus() }
+                )
+
+                if (pickupAddress.isNotEmpty()) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Hapus",
+                        tint = NebengColor.Gray400,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .clickable(onClick = onClearPickup)
+                    )
+                }
+            }
+
+            // Dropdown Popup below Pickup
+            if (activeField == ActiveSearchField.ORIGIN && (suggestions.isNotEmpty() || isSearching) && pickupWidthPx > 0) {
+                val widthDp = with(LocalDensity.current) { pickupWidthPx.toDp() }
+                Popup(
+                    alignment = Alignment.TopStart,
+                    offset = IntOffset(x = 0, y = pickupHeightPx + with(LocalDensity.current) { 6.dp.roundToPx() }),
+                    onDismissRequest = onDismissSuggestions,
+                    properties = PopupProperties(
+                        focusable = false,
+                        dismissOnBackPress = true,
+                        dismissOnClickOutside = true
+                    )
+                ) {
+                    Box(modifier = Modifier.width(widthDp)) {
+                        PlaceSuggestionsCard(
+                            suggestions = suggestions,
+                            isSearching = isSearching,
+                            onSelectSuggestion = onSelectSuggestion,
+                            onDismiss = onDismissSuggestions
+                        )
                     }
-                },
-                singleLine = true,
-                modifier = Modifier.weight(1f)
-            )
+                }
+            }
         }
 
         HorizontalDivider(
@@ -669,130 +868,90 @@ private fun DriverRouteInputCard(
             color = NebengColor.Gray200
         )
 
-        // 2. Dropoff Input
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+        // 2. Dropoff Input Box with Dropdown Popup
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { coordinates ->
+                    dropoffWidthPx = coordinates.size.width
+                    dropoffHeightPx = coordinates.size.height
+                }
         ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(NebengColor.Primary900) // Black square
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            BasicTextField(
-                value = dropoffAddress,
-                onValueChange = onDropoffChange,
-                textStyle = TextStyle(
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = NebengColor.Primary900
-                ),
-                decorationBox = { innerTextField ->
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        if (dropoffAddress.isEmpty()) {
-                            Text(
-                                text = "Titik Tujuan Akhir",
-                                fontSize = 14.sp,
-                                color = NebengColor.Gray400
-                            )
-                        }
-                        innerTextField()
-                    }
-                },
-                singleLine = true,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        // Suggestions Dropdown
-        AnimatedVisibility(visible = suggestions.isNotEmpty() || isSearching) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp)
-                    .clip(RoundedCornerShape(NebengRadius.Md))
-                    .background(NebengColor.Primary0)
-                    .border(1.dp, NebengColor.Gray200, RoundedCornerShape(NebengRadius.Md))
-                    .padding(8.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isSearching) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = NebengColor.Primary900
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Mencari alamat...",
-                            fontSize = 12.sp,
-                            color = NebengColor.Gray400
-                        )
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Saran Alamat",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = NebengColor.Gray400,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
-                        )
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Tutup",
-                            tint = NebengColor.Gray400,
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clickable(onClick = onDismissSuggestions)
-                        )
-                    }
-
-                    suggestions.take(4).forEach { suggestion ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(6.dp))
-                                .clickable { onSelectSuggestion(suggestion) }
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = null,
-                                tint = NebengColor.Primary900,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(NebengColor.Primary900) // Black square
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                BasicTextField(
+                    value = dropoffAddress,
+                    onValueChange = onDropoffChange,
+                    textStyle = TextStyle(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = NebengColor.Primary900
+                    ),
+                    cursorBrush = SolidColor(NebengColor.Primary900),
+                    decorationBox = { innerTextField ->
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            if (dropoffAddress.isEmpty()) {
                                 Text(
-                                    text = suggestion.name,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = NebengColor.Primary900
-                                )
-                                Text(
-                                    text = suggestion.fullAddress,
-                                    fontSize = 11.sp,
-                                    color = NebengColor.Gray400,
-                                    maxLines = 1
+                                    text = "Titik Tujuan Akhir",
+                                    fontSize = 14.sp,
+                                    color = NebengColor.Gray400
                                 )
                             }
+                            innerTextField()
                         }
+                    },
+                    singleLine = true,
+                    modifier = Modifier
+                        .weight(1f)
+                        .onFocusChanged { if (it.isFocused) onDropoffFocus() }
+                )
+
+                if (dropoffAddress.isNotEmpty()) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Hapus",
+                        tint = NebengColor.Gray400,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .clickable(onClick = onClearDropoff)
+                    )
+                }
+            }
+
+            // Dropdown Popup below Dropoff
+            if (activeField == ActiveSearchField.DESTINATION && (suggestions.isNotEmpty() || isSearching) && dropoffWidthPx > 0) {
+                val widthDp = with(LocalDensity.current) { dropoffWidthPx.toDp() }
+                Popup(
+                    alignment = Alignment.TopStart,
+                    offset = IntOffset(x = 0, y = dropoffHeightPx + with(LocalDensity.current) { 6.dp.roundToPx() }),
+                    onDismissRequest = onDismissSuggestions,
+                    properties = PopupProperties(
+                        focusable = false,
+                        dismissOnBackPress = true,
+                        dismissOnClickOutside = true
+                    )
+                ) {
+                    Box(modifier = Modifier.width(widthDp)) {
+                        PlaceSuggestionsCard(
+                            suggestions = suggestions,
+                            isSearching = isSearching,
+                            onSelectSuggestion = onSelectSuggestion,
+                            onDismiss = onDismissSuggestions
+                        )
                     }
                 }
             }
         }
     }
 }
+

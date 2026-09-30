@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -85,6 +87,7 @@ fun ProfileScreen(
     modifier: Modifier = Modifier,
     onNavigateToSettings: () -> Unit = {},
     onNavigateToEditProfile: () -> Unit = {},
+    onNavigateToVehicleManagement: () -> Unit = {},
     onLogoutSuccess: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
@@ -184,7 +187,7 @@ fun ProfileScreen(
                 ProfileMenuItem(
                     icon = Icons.Outlined.DirectionsCar,
                     title = "Kendaraan Saya",
-                    onClick = { showVehicleSheet = true }
+                    onClick = onNavigateToVehicleManagement
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -225,15 +228,7 @@ fun ProfileScreen(
         FaqBottomSheet(onDismiss = { showFaqSheet = false })
     }
 
-    if (showVehicleSheet) {
-        VehicleBottomSheet(
-            vehicles = state.vehicles,
-            isAdding = state.isAddingVehicle,
-            onAddVehicle = viewModel::addVehicle,
-            onDeleteVehicle = viewModel::deleteVehicle,
-            onDismiss = { showVehicleSheet = false }
-        )
-    }
+    // VehicleManagement is now a dedicated screen (see NavDestination.VehicleManagement)
 
     if (showScheduleSheet) {
         ScheduleBottomSheet(
@@ -877,6 +872,8 @@ private fun VehicleBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
                 .padding(horizontal = 24.dp, vertical = 12.dp)
                 .verticalScroll(rememberScrollState())
         ) {

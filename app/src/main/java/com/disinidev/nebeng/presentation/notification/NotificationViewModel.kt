@@ -1,10 +1,13 @@
 package com.disinidev.nebeng.presentation.notification
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.disinidev.nebeng.domain.model.Notification
 import com.disinidev.nebeng.domain.model.NotificationCategory
+import com.disinidev.nebeng.domain.repository.BookingRepository
 import com.disinidev.nebeng.domain.repository.NotificationRepository
+import com.disinidev.nebeng.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +25,9 @@ enum class NotificationFilter(val label: String, val category: NotificationCateg
 data class NotificationUiState(
     val selectedFilter: NotificationFilter = NotificationFilter.ALL,
     val notifications: List<Notification> = emptyList(),
+    val activeBookingId: String? = null,
+    val completedBookingIds: Set<String> = emptySet(),
+    val canceledBookingIds: Set<String> = emptySet(),
     val totalCount: Int = 0,
     val tripCount: Int = 0,
     val systemCount: Int = 0,
@@ -32,7 +38,9 @@ data class NotificationUiState(
 
 @HiltViewModel
 class NotificationViewModel @Inject constructor(
-    private val notificationRepository: NotificationRepository
+    private val notificationRepository: NotificationRepository,
+    private val bookingRepository: BookingRepository? = null,
+    private val userRepository: UserRepository? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NotificationUiState())
@@ -83,6 +91,26 @@ class NotificationViewModel @Inject constructor(
                 _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
             } else {
                 _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            }
+
+            try {
+                val userUuid = userRepository?.getCurrentUserUuid().orEmpty()
+                val activities = if (userUuid.isNotBlank()) {
+                    bookingRepository?.getUserActivities(userUuid)?.getOrNull()
+                } else null
+                val activeId = activities?.activeTrip?.id
+                val completedIds = activities?.completedTrips?.map { it.id }?.toSet() ?: emptySet()
+                val canceledIds = activities?.canceledTrips?.map { it.id }?.toSet() ?: emptySet()
+
+                _uiState.update {
+                    it.copy(
+                        activeBookingId = activeId,
+                        completedBookingIds = completedIds,
+                        canceledBookingIds = canceledIds
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("NotificationVM", "Error loading trip activities: ${e.message}")
             }
 
             notificationRepository.getNotifications()

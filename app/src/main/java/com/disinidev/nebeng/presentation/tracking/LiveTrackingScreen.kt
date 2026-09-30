@@ -3,6 +3,12 @@ package com.disinidev.nebeng.presentation.tracking
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -57,6 +63,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.disinidev.nebeng.R
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
+import androidx.activity.compose.BackHandler
 import com.disinidev.nebeng.domain.model.VehicleType
 import org.maplibre.android.geometry.LatLng
 
@@ -68,6 +75,10 @@ fun LiveTrackingScreen(
     onNavigateToChat: (driverName: String, bookingId: String, vehicleInfo: String, pin: String) -> Unit = { _, _, _, _ -> },
     onTripFinished: (bookingId: String) -> Unit = {}
 ) {
+    BackHandler {
+        onNavigateBack()
+    }
+
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var projectedPoints by remember { mutableStateOf<ProjectedTrackingPoints?>(null) }
@@ -153,15 +164,25 @@ fun LiveTrackingScreen(
                                 .background(NebengColor.Primary0)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (state.isArrived) "Driver Tiba • Siap Berangkat" else "Tiba dlm ${state.etaMinutes} mnt • ${state.distanceMeters}m",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = NebengColor.Primary0,
-                            style = TextStyle(
-                                platformStyle = PlatformTextStyle(includeFontPadding = false)
+                        val etaText = if (state.isArrived) "Driver Tiba • Siap Berangkat" else "Tiba dlm ${state.etaMinutes} mnt • ${state.distanceMeters}m"
+                        AnimatedContent(
+                            targetState = etaText,
+                            transitionSpec = {
+                                (slideInVertically { height -> height } + fadeIn())
+                                    .togetherWith(slideOutVertically { height -> -height } + fadeOut())
+                            },
+                            label = "EtaTextAnimation"
+                        ) { targetText ->
+                            Text(
+                                text = targetText,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NebengColor.Primary0,
+                                style = TextStyle(
+                                    platformStyle = PlatformTextStyle(includeFontPadding = false)
+                                )
                             )
-                        )
+                        }
                     }
                 }
 

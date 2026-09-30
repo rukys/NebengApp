@@ -36,7 +36,10 @@ import com.disinidev.nebeng.presentation.search.results.SearchResultsScreen
 import com.disinidev.nebeng.presentation.settings.SettingsScreen
 import com.disinidev.nebeng.presentation.settings.password.ChangePasswordScreen
 import com.disinidev.nebeng.presentation.tracking.LiveTrackingScreen
+import com.disinidev.nebeng.presentation.tip.TipScreen
+import com.disinidev.nebeng.presentation.vehicle.VehicleManagementScreen
 import com.disinidev.nebeng.presentation.tripdone.TripDoneScreen
+import com.disinidev.nebeng.presentation.routine.RoutineCommuteScreen
 
 @Composable
 fun NebengNavGraph(
@@ -218,7 +221,7 @@ fun NebengNavGraph(
                     navController.navigate(NavDestination.OfferRide)
                 },
                 onNavigateToRoutine = {
-                    navController.navigate(NavDestination.Search(vehicleType = "car"))
+                    navController.navigate(NavDestination.RoutineCommute)
                 },
                 onNavigateToRideDetail = { rideId ->
                     navController.navigate(NavDestination.RideDetail(rideId = rideId))
@@ -284,20 +287,26 @@ fun NebengNavGraph(
                         NebengTab.AKUN -> navController.navigate(NavDestination.Profile)
                     }
                 },
-                onNavigateToChat = { driverName, vehicleInfo, pin, bookingId ->
+                onNavigateToChat = { driverName, vehicleInfo, pin, bookingId, isTripCompleted ->
                     navController.navigate(
                         NavDestination.ChatDetail(
                             driverName = driverName,
                             vehicleInfo = vehicleInfo,
                             pin = pin,
-                            bookingId = bookingId
+                            bookingId = bookingId,
+                            isTripCompleted = isTripCompleted
                         )
                     )
                 }
             )
         }
 
-        composable<NavDestination.ChatDetail> { backStackEntry ->
+        composable<NavDestination.ChatDetail>(
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "nebeng://trip/{bookingId}/chat" },
+                navDeepLink { uriPattern = "nebeng://chat/{bookingId}" }
+            )
+        ) { backStackEntry ->
             ChatScreen(
                 onNavigateBack = {
                     navController.popBackStack()
@@ -317,6 +326,9 @@ fun NebengNavGraph(
                 },
                 onNavigateToEditProfile = {
                     navController.navigate(NavDestination.EditProfile)
+                },
+                onNavigateToVehicleManagement = {
+                    navController.navigate(NavDestination.VehicleManagement)
                 },
                 onLogoutSuccess = {
                     navController.navigate(NavDestination.Login) {
@@ -436,6 +448,9 @@ fun NebengNavGraph(
                     navController.navigate(NavDestination.Home) {
                         popUpTo(NavDestination.Home) { inclusive = true }
                     }
+                },
+                onNavigateToVehicleManagement = {
+                    navController.navigate(NavDestination.VehicleManagement)
                 }
             )
         }
@@ -449,7 +464,9 @@ fun NebengNavGraph(
                         navController.popBackStack()
                     },
                     onConfirmBooking = { bookingId, _ ->
-                        navController.navigate(NavDestination.LiveTracking(bookingId = bookingId))
+                        navController.navigate(NavDestination.LiveTracking(bookingId = bookingId)) {
+                            popUpTo(NavDestination.Home) { inclusive = false }
+                        }
                     }
                 )
             } else {
@@ -458,7 +475,9 @@ fun NebengNavGraph(
                         navController.popBackStack()
                     },
                     onConfirmBooking = { bookingId, _ ->
-                        navController.navigate(NavDestination.LiveTracking(bookingId = bookingId))
+                        navController.navigate(NavDestination.LiveTracking(bookingId = bookingId)) {
+                            popUpTo(NavDestination.Home) { inclusive = false }
+                        }
                     }
                 )
             }
@@ -472,7 +491,9 @@ fun NebengNavGraph(
                     navController.popBackStack()
                 },
                 onConfirmBooking = { bookingId, seatPosition ->
-                    navController.navigate(NavDestination.LiveTracking(bookingId = bookingId))
+                    navController.navigate(NavDestination.LiveTracking(bookingId = bookingId)) {
+                        popUpTo(NavDestination.Home) { inclusive = false }
+                    }
                 }
             )
         }
@@ -484,7 +505,9 @@ fun NebengNavGraph(
                     navController.popBackStack()
                 },
                 onConfirmBooking = { bookingId, helmetChoice ->
-                    navController.navigate(NavDestination.LiveTracking(bookingId = bookingId))
+                    navController.navigate(NavDestination.LiveTracking(bookingId = bookingId)) {
+                        popUpTo(NavDestination.Home) { inclusive = false }
+                    }
                 }
             )
         }
@@ -493,7 +516,7 @@ fun NebengNavGraph(
             val route = backStackEntry.toRoute<NavDestination.Payment>()
             LaunchedEffect(Unit) {
                 navController.navigate(NavDestination.LiveTracking(bookingId = route.bookingId)) {
-                    popUpTo(NavDestination.Payment(bookingId = route.bookingId, amount = route.amount)) { inclusive = true }
+                    popUpTo(NavDestination.Home) { inclusive = false }
                 }
             }
         }
@@ -502,7 +525,7 @@ fun NebengNavGraph(
             val route = backStackEntry.toRoute<NavDestination.QrisPayment>()
             LaunchedEffect(Unit) {
                 navController.navigate(NavDestination.LiveTracking(bookingId = route.bookingId)) {
-                    popUpTo(NavDestination.QrisPayment(bookingId = route.bookingId, paymentId = route.paymentId)) { inclusive = true }
+                    popUpTo(NavDestination.Home) { inclusive = false }
                 }
             }
         }
@@ -513,7 +536,10 @@ fun NebengNavGraph(
             val route = backStackEntry.toRoute<NavDestination.LiveTracking>()
             LiveTrackingScreen(
                 onNavigateBack = {
-                    navController.popBackStack()
+                    navController.navigate(NavDestination.Home) {
+                        popUpTo(NavDestination.Home) { inclusive = false }
+                        launchSingleTop = true
+                    }
                 },
                 onNavigateToChat = { driverName, bookingId, vehicleInfo, pin ->
                     navController.navigate(
@@ -521,7 +547,8 @@ fun NebengNavGraph(
                             driverName = driverName,
                             vehicleInfo = vehicleInfo,
                             pin = pin,
-                            bookingId = bookingId
+                            bookingId = bookingId,
+                            isTripCompleted = false
                         )
                     )
                 },
@@ -554,11 +581,37 @@ fun NebengNavGraph(
 
         composable<NavDestination.Tip> { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.Tip>()
-            LaunchedEffect(Unit) {
-                navController.navigate(NavDestination.Home) {
-                    popUpTo(NavDestination.Home) { inclusive = true }
+            TipScreen(
+                onSkip = {
+                    navController.navigate(NavDestination.Home) {
+                        popUpTo(NavDestination.Home) { inclusive = true }
+                    }
+                },
+                onDone = {
+                    navController.navigate(NavDestination.Home) {
+                        popUpTo(NavDestination.Home) { inclusive = true }
+                    }
                 }
-            }
+            )
+        }
+        composable<NavDestination.VehicleManagement> {
+            VehicleManagementScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable<NavDestination.RoutineCommute> {
+            RoutineCommuteScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onSearchRide = { origin, destination, vehicleType ->
+                    navController.navigate(
+                        NavDestination.SearchResults(
+                            pickupAddress = origin,
+                            dropoffAddress = destination,
+                            vehicleType = vehicleType
+                        )
+                    )
+                }
+            )
         }
     }
 }

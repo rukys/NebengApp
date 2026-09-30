@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -116,13 +119,25 @@ fun TripDoneScreen(
                 onRatingChanged = viewModel::onRatingChanged
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Compliment Tags Section
+            ComplimentTagsSection(
+                availableTags = state.availableTags,
+                selectedTags = state.selectedTags,
+                onTagToggled = viewModel::onTagToggled,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Review / Feedback Input (Apresiasi & Tip di-takeout)
             ReviewInputCard(
                 reviewText = state.reviewText,
                 onReviewTextChanged = viewModel::onReviewTextChanged,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding()
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -300,3 +315,53 @@ private fun ReviewInputCard(
         }
     }
 }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ComplimentTagsSection(
+    availableTags: List<String>,
+    selectedTags: Set<String>,
+    onTagToggled: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = "APA YANG KAMU SUKAI? (OPSIONAL)",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = NebengColor.Gray800,
+            letterSpacing = 0.5.sp,
+            modifier = Modifier.padding(bottom = 10.dp)
+        )
+
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            availableTags.forEach { tag ->
+                val isSelected = selectedTags.contains(tag)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(if (isSelected) NebengColor.Primary900 else NebengColor.Primary50)
+                        .border(
+                            1.dp,
+                            if (isSelected) NebengColor.Primary900 else NebengColor.Gray200,
+                            RoundedCornerShape(20.dp)
+                        )
+                        .clickable { onTagToggled(tag) }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = tag,
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (isSelected) NebengColor.Primary0 else NebengColor.Gray800
+                    )
+                }
+            }
+        }
+    }
+}
+

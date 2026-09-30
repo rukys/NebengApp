@@ -45,7 +45,8 @@ sealed interface NavDestination {
         val driverName: String = "Pengemudi",
         val vehicleInfo: String = "-",
         val pin: String = "",
-        val bookingId: String = ""
+        val bookingId: String = "",
+        val isTripCompleted: Boolean = false
     ) : NavDestination
 
     @Serializable
@@ -104,4 +105,10 @@ sealed interface NavDestination {
 
     @Serializable
     data class Tip(val bookingId: String) : NavDestination
+
+    @Serializable
+    data object VehicleManagement : NavDestination
+
+    @Serializable
+    data object RoutineCommute : NavDestination
 }

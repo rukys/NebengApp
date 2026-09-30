@@ -12,5 +12,6 @@ data class ChatUiState(
     val vehicleInfo: String = "-",
     val pin: String = "",
     val inputMessage: String = "",
-    val messages: List<ChatMessage> = emptyList()
+    val messages: List<ChatMessage> = emptyList(),
+    val isTripCompleted: Boolean = false
 )

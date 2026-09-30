@@ -10,6 +10,7 @@ import com.disinidev.nebeng.domain.model.User
 import com.disinidev.nebeng.domain.model.UserRole
 import com.disinidev.nebeng.domain.model.VehicleInfo
 import com.disinidev.nebeng.domain.model.VehicleType
+import com.disinidev.nebeng.domain.repository.NotificationRepository
 import com.disinidev.nebeng.domain.repository.RideRepository
 import com.disinidev.nebeng.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +32,7 @@ data class HomeUiState(
     val userLng: Double = 106.8580,
     val userAvatarInitials: String = "",
     val avatarUrl: String? = null,
+    val unreadNotificationCount: Int = 0,
     val selectedService: ServiceType = ServiceType.CAR,
     val popularRides: List<Ride> = emptyList(),
     val totalRidesCount: Int = 0,
@@ -43,7 +45,8 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     private val rideRepository: RideRepository,
     private val userRepository: UserRepository,
-    private val locationClient: LocationClient
+    private val locationClient: LocationClient,
+    private val notificationRepository: NotificationRepository? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -53,6 +56,7 @@ class HomeViewModel @Inject constructor(
         loadUserProfile()
         syncFcmToken()
         loadPopularRides()
+        loadUnreadNotificationCount()
     }
 
     fun onServiceSelected(service: ServiceType) {
@@ -62,6 +66,20 @@ class HomeViewModel @Inject constructor(
     fun refreshRides() {
         fetchCurrentLocation()
         loadPopularRides(isRefresh = true)
+        loadUnreadNotificationCount()
+    }
+
+    fun loadUnreadNotificationCount() {
+        viewModelScope.launch {
+            try {
+                val count = notificationRepository?.getUnreadCount()?.getOrNull() ?: 0
+                _uiState.update { it.copy(unreadNotificationCount = count) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Keep current state
+            }
+        }
     }
 
     fun fetchCurrentLocation() {

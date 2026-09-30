@@ -8,18 +8,28 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
+import io.github.jan.supabase.realtime.RealtimeChannel
+import io.github.jan.supabase.realtime.channel
+import io.github.jan.supabase.realtime.postgresChangeFlow
+import io.github.jan.supabase.realtime.realtime
+import io.github.jan.supabase.realtime.PostgresAction
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import android.content.Context
+import com.disinidev.nebeng.core.notification.NotificationHelper
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -62,10 +72,20 @@ private data class RemoteConvUserDto(
 
 @Singleton
 class ChatRepositoryImpl @Inject constructor(
-    private val supabaseClient: SupabaseClient
+    private val supabaseClient: SupabaseClient,
+    @param:ApplicationContext private val context: Context
 ) : ChatRepository {
 
+    @Volatile
+    private var activeChatBookingId: String? = null
+
+    override fun setActiveChat(bookingId: String?) {
+        activeChatBookingId = bookingId
+    }
+
     private val localMessages = ConcurrentHashMap<String, MutableList<ChatMessage>>()
+    private val activeChannels = ConcurrentHashMap<String, RealtimeChannel>()
+    private val realtimeMessagesFlow = ConcurrentHashMap<String, MutableStateFlow<List<ChatMessage>>>()
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Asia/Jakarta"))
 
     override suspend fun getMessages(
@@ -75,50 +95,104 @@ class ChatRepositoryImpl @Inject constructor(
         runCatching {
             try {
                 val list = supabaseClient.from("chat_messages").select {
-                    filter {
-                        eq("booking_id", bookingId)
-                    }
+                    filter { eq("booking_id", bookingId) }
                     order("created_at", Order.ASCENDING)
                 }.decodeList<RemoteChatMessageDto>()
 
-                if (list.isNotEmpty()) {
-                    val messages = list.map { dto ->
-                        val timeStr = dto.created_at?.let {
-                            runCatching { timeFormatter.format(Instant.parse(it)) }.getOrNull()
-                        } ?: ""
-                        ChatMessage(
-                            id = dto.id,
-                            text = dto.message,
-                            isFromMe = dto.sender_id == currentUserId,
-                            timestamp = timeStr
-                        )
-                    }
-                    localMessages[bookingId] = messages.toMutableList()
-                    return@runCatching messages
-                }
+                val messages = list.map { dto -> dto.toChatMessage(currentUserId) }
+                localMessages[bookingId] = messages.toMutableList()
+                messages
             } catch (e: Exception) {
-                Log.e("ChatRepository", "getMessages Supabase error: ${e.message}", e)
+                Log.e("ChatRepository", "getMessages error: ${e.message}", e)
+                localMessages[bookingId] ?: emptyList()
             }
-
-            // Fallback to local cache or empty
-            localMessages[bookingId] ?: emptyList()
         }
     }
 
-    override fun observeMessages(bookingId: String, currentUserId: String): Flow<List<ChatMessage>> = flow {
-        // Emit initial
-        val initial = getMessages(bookingId, currentUserId).getOrElse { localMessages[bookingId] ?: emptyList() }
-        emit(initial)
-
-        // Poll every 3 seconds for new messages
-        while (true) {
-            delay(3000L)
-            val updated = getMessages(bookingId, currentUserId).getOrNull()
-            if (updated != null) {
-                emit(updated)
-            }
+    override fun observeMessages(bookingId: String, currentUserId: String): Flow<List<ChatMessage>> {
+        // Get or create the realtime state flow for this booking
+        val stateFlow = realtimeMessagesFlow.getOrPut(bookingId) {
+            MutableStateFlow(localMessages[bookingId] ?: emptyList())
         }
-    }.flowOn(Dispatchers.IO)
+
+        return flow {
+            // 1. Emit cached messages immediately
+            val cached = localMessages[bookingId] ?: emptyList()
+            if (cached.isNotEmpty()) emit(cached)
+
+            // 2. Fetch initial from Supabase
+            val initial = getMessages(bookingId, currentUserId).getOrElse { emptyList() }
+            stateFlow.value = initial
+            emit(initial)
+
+            // 3. Subscribe to Realtime channel if not already subscribed
+            if (!activeChannels.containsKey(bookingId)) {
+                try {
+                    val channel = supabaseClient.channel("chat:$bookingId")
+                    activeChannels[bookingId] = channel
+
+                    val insertFlow = channel.postgresChangeFlow<PostgresAction.Insert>(schema = "public") {
+                        table = "chat_messages"
+                        filter = "booking_id=eq.$bookingId"
+                    }
+
+                    channel.subscribe(blockUntilSubscribed = false)
+                    Log.d("ChatRepository", "Subscribed to Realtime channel for booking $bookingId")
+
+                    // 4. Collect realtime inserts and append to state
+                    insertFlow.collect { action ->
+                        try {
+                            val record = action.record
+                            val msgId = record["id"]?.jsonPrimitive?.content ?: UUID.randomUUID().toString()
+                            val senderId = record["sender_id"]?.jsonPrimitive?.content ?: ""
+                            val text = record["message"]?.jsonPrimitive?.content ?: ""
+                            val createdAt = record["created_at"]?.jsonPrimitive?.content
+                            val timeStr = createdAt?.let {
+                                runCatching { timeFormatter.format(Instant.parse(it)) }.getOrNull()
+                            } ?: ""
+
+                            val isFromMe = senderId == currentUserId
+                            val newMsg = ChatMessage(
+                                id = msgId,
+                                text = text,
+                                isFromMe = isFromMe,
+                                timestamp = timeStr
+                            )
+
+                            val current = stateFlow.value.toMutableList()
+                            // Avoid duplicates
+                            if (current.none { it.id == msgId }) {
+                                current.add(newMsg)
+                                localMessages[bookingId] = current
+                                stateFlow.value = current.toList()
+                            }
+
+                            // Trigger notification if not from me and user is not currently in this chat
+                            if (!isFromMe && activeChatBookingId != bookingId) {
+                                val senderDisplayName = record["sender_name"]?.jsonPrimitive?.content ?: "Teman Nebeng"
+                                NotificationHelper.showNotification(
+                                    context = context,
+                                    title = "Pesan baru dari $senderDisplayName",
+                                    body = text,
+                                    channelId = NotificationHelper.CHANNEL_CHAT,
+                                    actionUrl = "nebeng://trip/$bookingId/chat",
+                                    notificationId = bookingId.hashCode()
+                                )
+                            }
+                        } catch (e: Exception) {
+                            Log.e("ChatRepository", "Realtime insert parse error: ${e.message}", e)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("ChatRepository", "Realtime subscribe error: ${e.message}", e)
+                    // Fallback: collect from stateFlow only (no realtime updates)
+                }
+            }
+
+            // Collect subsequent stateFlow updates
+            stateFlow.collect { emit(it) }
+        }.flowOn(Dispatchers.IO)
+    }
 
     override suspend fun sendMessage(
         bookingId: String,
@@ -138,11 +212,12 @@ class ChatRepositoryImpl @Inject constructor(
                 timestamp = timeStr
             )
 
-            // Update local memory first
-            val currentList = localMessages.getOrPut(bookingId) { mutableListOf() }
-            currentList.add(newMsg)
+            // Optimistic local update
+            val current = localMessages.getOrPut(bookingId) { mutableListOf() }
+            current.add(newMsg)
+            realtimeMessagesFlow[bookingId]?.value = current.toList()
 
-            // Sync to Supabase
+            // Persist to Supabase — Realtime will broadcast to all subscribers
             try {
                 val payload = mapOf(
                     "id" to msgId,
@@ -164,7 +239,6 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun getUserConversations(userUuid: String): Result<List<ConversationItem>> = withContext(Dispatchers.IO) {
         runCatching {
             try {
-                // 1. Fetch user bookings as passenger
                 val passengerBookings = supabaseClient.from("bookings").select(
                     columns = Columns.raw(
                         "id, seat_position, pickup_pin, status, created_at, " +
@@ -172,14 +246,11 @@ class ChatRepositoryImpl @Inject constructor(
                         "users!rides_driver_id_fkey(id, full_name, avatar_url))"
                     )
                 ) {
-                    filter {
-                        eq("passenger_id", userUuid)
-                    }
+                    filter { eq("passenger_id", userUuid) }
                     order("created_at", Order.DESCENDING)
                     limit(10)
                 }.decodeList<RemoteBookingConvDto>()
 
-                // 2. Fetch driver bookings
                 val driverBookings = supabaseClient.from("bookings").select(
                     columns = Columns.raw(
                         "id, seat_position, pickup_pin, status, created_at, " +
@@ -187,16 +258,14 @@ class ChatRepositoryImpl @Inject constructor(
                         "users!bookings_passenger_id_fkey(id, full_name, avatar_url)"
                     )
                 ) {
-                    filter {
-                        eq("rides.driver_id", userUuid)
-                    }
+                    filter { eq("rides.driver_id", userUuid) }
                     order("created_at", Order.DESCENDING)
                     limit(10)
                 }.decodeList<RemoteBookingConvDto>()
 
                 val allRemote = passengerBookings + driverBookings
                 if (allRemote.isNotEmpty()) {
-                    val items = allRemote.map { b ->
+                    return@runCatching allRemote.map { b ->
                         val isDriverRole = b.rides?.driver_id == userUuid
                         val otherName = if (isDriverRole) {
                             b.users?.full_name ?: "Penumpang"
@@ -207,14 +276,18 @@ class ChatRepositoryImpl @Inject constructor(
                             .filter { it.isNotBlank() }
                             .joinToString(" • ")
                             .ifBlank { "Kendaraan" }
-                        val initials = otherName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").uppercase()
+                        val initials = otherName.split(" ")
+                            .mapNotNull { it.firstOrNull()?.toString() }
+                            .take(2).joinToString("").uppercase()
                         val isActive = b.status in listOf("pending", "confirmed", "picked_up")
 
                         ConversationItem(
                             id = b.id,
                             title = otherName,
                             subtitle = if (isActive) "Status: ${b.status} • PIN: ${b.pickup_pin}" else "Perjalanan selesai",
-                            timestamp = b.created_at?.let { runCatching { timeFormatter.format(Instant.parse(it)) }.getOrNull() } ?: "Hari Ini",
+                            timestamp = b.created_at?.let {
+                                runCatching { timeFormatter.format(Instant.parse(it)) }.getOrNull()
+                            } ?: "Hari Ini",
                             avatarInitials = initials.ifBlank { "N" },
                             isGroup = false,
                             isActiveRide = isActive,
@@ -223,13 +296,34 @@ class ChatRepositoryImpl @Inject constructor(
                             pin = b.pickup_pin
                         )
                     }
-                    return@runCatching items
                 }
             } catch (e: Exception) {
-                Log.e("ChatRepository", "getUserConversations Supabase error: ${e.message}", e)
+                Log.e("ChatRepository", "getUserConversations error: ${e.message}", e)
             }
-
             emptyList()
         }
+    }
+
+    /** Unsubscribe a booking's Realtime channel (call when chat screen closes) */
+    suspend fun unsubscribeBooking(bookingId: String) {
+        activeChannels.remove(bookingId)?.let { channel ->
+            try {
+                supabaseClient.realtime.removeChannel(channel)
+            } catch (e: Exception) {
+                Log.w("ChatRepository", "unsubscribe error: ${e.message}")
+            }
+        }
+    }
+
+    private fun RemoteChatMessageDto.toChatMessage(currentUserId: String): ChatMessage {
+        val timeStr = created_at?.let {
+            runCatching { timeFormatter.format(Instant.parse(it)) }.getOrNull()
+        } ?: ""
+        return ChatMessage(
+            id = id,
+            text = message,
+            isFromMe = sender_id == currentUserId,
+            timestamp = timeStr
+        )
     }
 }

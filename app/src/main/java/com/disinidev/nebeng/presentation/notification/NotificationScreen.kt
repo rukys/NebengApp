@@ -122,16 +122,38 @@ fun NotificationScreen(
                         }
 
                         items(notifs, key = { it.id }) { notif ->
+                            val parsedBookingId = notif.actionUrl?.let { url ->
+                                Regex("nebeng://trip/([^/]+)/tracking").find(url)?.groupValues?.get(1)
+                                    ?: url.substringAfterLast("/").takeIf { it.isNotBlank() && it != "activity" }
+                            }
+
+                            val isCanceled = notif.title.contains("batal", ignoreCase = true) ||
+                                notif.body.contains("batal", ignoreCase = true) ||
+                                (parsedBookingId != null && state.canceledBookingIds.contains(parsedBookingId))
+
+                            val isCompleted = notif.title.contains("selesai", ignoreCase = true) ||
+                                notif.body.contains("selesai", ignoreCase = true) ||
+                                (parsedBookingId != null && state.completedBookingIds.contains(parsedBookingId))
+
+                            val isTrackingActive = !isCanceled && !isCompleted &&
+                                (parsedBookingId == null || parsedBookingId == state.activeBookingId || (state.activeBookingId == null && state.completedBookingIds.isEmpty() && state.canceledBookingIds.isEmpty()))
+
+                            val badgeText = when {
+                                isCanceled -> "Perjalanan Dibatalkan"
+                                else -> "Perjalanan Selesai"
+                            }
+
                             NotificationCard(
                                 notification = notif,
+                                isTrackingActive = isTrackingActive,
+                                statusBadgeText = badgeText,
                                 onClick = { viewModel.markAsRead(notif.id) },
                                 onActionClick = {
                                     viewModel.markAsRead(notif.id)
-                                    val parsedBookingId = notif.actionUrl?.let { url ->
-                                        Regex("nebeng://trip/([^/]+)/tracking").find(url)?.groupValues?.get(1)
-                                            ?: url.substringAfterLast("/").takeIf { it.isNotBlank() && it != "activity" }
-                                    } ?: "booking_current"
-                                    onNavigateToLiveTracking(parsedBookingId)
+                                    if (isTrackingActive) {
+                                        val targetId = parsedBookingId ?: "booking_current"
+                                        onNavigateToLiveTracking(targetId)
+                                    }
                                 }
                             )
                         }
@@ -282,6 +304,8 @@ private fun NotificationCard(
     notification: Notification,
     onClick: () -> Unit,
     onActionClick: () -> Unit,
+    isTrackingActive: Boolean = true,
+    statusBadgeText: String? = null,
     modifier: Modifier = Modifier
 ) {
     val borderColor = if (!notification.isRead) NebengColor.Primary900 else NebengColor.Gray200
@@ -387,20 +411,37 @@ private fun NotificationCard(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(NebengRadius.Full))
-                        .background(NebengColor.Primary900)
-                        .clickable(onClick = onActionClick)
-                        .padding(horizontal = 14.dp, vertical = 7.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Lihat Live Tracking →",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = NebengColor.Primary0
-                    )
+                if (isTrackingActive) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(NebengRadius.Full))
+                            .background(NebengColor.Primary900)
+                            .clickable(onClick = onActionClick)
+                            .padding(horizontal = 14.dp, vertical = 7.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Lihat Live Tracking →",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NebengColor.Primary0
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(NebengRadius.Full))
+                            .background(NebengColor.Gray200)
+                            .padding(horizontal = 14.dp, vertical = 7.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = statusBadgeText ?: "Perjalanan Selesai",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = NebengColor.Gray600
+                        )
+                    }
                 }
             }
         }

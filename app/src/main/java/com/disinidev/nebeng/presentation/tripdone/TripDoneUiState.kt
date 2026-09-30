@@ -7,6 +7,15 @@ data class TripDoneUiState(
     val vehicleModel: String = "",
     val licensePlate: String = "",
     val rating: Int = 5,
+    val availableTags: List<String> = listOf(
+        "Tepat Waktu",
+        "Mobil Bersih & Wangi",
+        "Mengemudi Aman",
+        "Ramah & Sopan",
+        "Musik Asik",
+        "Rute Efisien"
+    ),
+    val selectedTags: Set<String> = emptySet(),
     val reviewText: String = "",
     val isSubmitting: Boolean = false,
     val isCompleted: Boolean = false,

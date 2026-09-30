@@ -84,6 +84,7 @@ class CheckoutViewModel @Inject constructor(
         onSuccess: (bookingId: String) -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
+        if (_uiState.value.isLoading || _uiState.value.isConfirmed) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             val seat = _uiState.value.selectedSeat

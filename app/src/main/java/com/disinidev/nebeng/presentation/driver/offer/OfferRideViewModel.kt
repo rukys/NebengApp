@@ -77,13 +77,10 @@ class OfferRideViewModel @Inject constructor(
                 vehicleRepository.getDriverVehicles(userUuid)
                     .onSuccess { vehicles ->
                         _uiState.update { it.copy(savedVehicles = vehicles) }
-                        if (vehicles.isNotEmpty() && _uiState.value.selectedVehicleId == null) {
-                            val matching = vehicles.firstOrNull {
-                                (it.type == VehicleType.CAR && _uiState.value.vehicleType == "car") ||
-                                (it.type == VehicleType.MOTORCYCLE && _uiState.value.vehicleType == "motorcycle")
-                            } ?: vehicles.first()
-                            selectSavedVehicle(matching)
-                        }
+                        if (_uiState.value.selectedVehicleId != null) return@onSuccess
+                        val currentType = VehicleType.fromString(_uiState.value.vehicleType)
+                        val targetVehicle = vehicles.firstOrNull { it.type == currentType } ?: vehicles.firstOrNull()
+                        targetVehicle?.let(::selectSavedVehicle)
                     }
             } catch (_: Exception) {
                 // Offline fallback
@@ -97,7 +94,7 @@ class OfferRideViewModel @Inject constructor(
             it.copy(
                 selectedVehicleId = vehicle.id,
                 vehicleType = if (isMotorcycle) "motorcycle" else "car",
-                vehicleModel = "${vehicle.brand} ${vehicle.model}",
+                vehicleModel = "${vehicle.brand} ${vehicle.model}".trim(),
                 vehiclePlate = vehicle.plate,
                 availableSeats = if (isMotorcycle) 1 else if (it.availableSeats > 1) it.availableSeats else 3
             )
@@ -149,29 +146,56 @@ class OfferRideViewModel @Inject constructor(
         }
     }
 
+    fun onClearPickup() {
+        _uiState.update {
+            it.copy(
+                pickupAddress = "",
+                suggestions = emptyList(),
+                activeField = ActiveSearchField.NONE
+            )
+        }
+    }
+
+    fun onClearDropoff() {
+        _uiState.update {
+            it.copy(
+                dropoffAddress = "",
+                suggestions = emptyList(),
+                activeField = ActiveSearchField.NONE
+            )
+        }
+    }
+
+    fun onPickupFocus() {
+        _uiState.update { it.copy(activeField = ActiveSearchField.ORIGIN) }
+        if (_uiState.value.pickupAddress.trim().length >= 2 && _uiState.value.suggestions.isEmpty()) {
+            querySuggestions(_uiState.value.pickupAddress)
+        }
+    }
+
+    fun onDropoffFocus() {
+        _uiState.update { it.copy(activeField = ActiveSearchField.DESTINATION) }
+        if (_uiState.value.dropoffAddress.trim().length >= 2 && _uiState.value.suggestions.isEmpty()) {
+            querySuggestions(_uiState.value.dropoffAddress)
+        }
+    }
+
     fun closeSuggestions() {
         _uiState.update { it.copy(suggestions = emptyList(), activeField = ActiveSearchField.NONE) }
     }
 
     fun onVehicleTypeChange(type: String) {
-        val matchingVehicle = _uiState.value.savedVehicles.firstOrNull {
-            if (type == "motorcycle") it.type == VehicleType.MOTORCYCLE else it.type == VehicleType.CAR
-        }
+        val targetType = VehicleType.fromString(type)
+        val matchingVehicle = _uiState.value.savedVehicles.firstOrNull { it.type == targetType }
 
-        _uiState.update {
-            if (matchingVehicle != null) {
-                it.copy(
-                    vehicleType = type,
-                    selectedVehicleId = matchingVehicle.id,
-                    vehicleModel = "${matchingVehicle.brand} ${matchingVehicle.model}",
-                    vehiclePlate = matchingVehicle.plate,
-                    availableSeats = if (type == "motorcycle") 1 else 3
-                )
-            } else {
+        if (matchingVehicle != null) {
+            selectSavedVehicle(matchingVehicle)
+        } else {
+            _uiState.update {
                 it.copy(
                     vehicleType = type,
                     selectedVehicleId = null,
-                    availableSeats = if (type == "motorcycle") 1 else 3,
+                    availableSeats = if (targetType == VehicleType.MOTORCYCLE) 1 else 3,
                     vehicleModel = "",
                     vehiclePlate = ""
                 )

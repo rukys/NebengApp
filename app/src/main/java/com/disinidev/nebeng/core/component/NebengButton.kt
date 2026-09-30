@@ -18,6 +18,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -111,54 +118,63 @@ fun NebengButton(
         contentPadding = PaddingValues(horizontal = size.horizontalPadding),
         elevation = null
     ) {
-        if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                color = contentColor,
-                strokeWidth = 2.dp
-            )
-        } else {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                if (leadingIcon != null) {
-                    Icon(
-                        imageVector = leadingIcon,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                }
-                Text(
-                    text = text,
-                    fontSize = size.fontSize.sp,
-                    fontWeight = FontWeight.Bold,
-                    style = TextStyle(
-                        platformStyle = PlatformTextStyle(includeFontPadding = false)
-                    )
+        AnimatedContent(
+            targetState = isLoading,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.85f))
+                    .togetherWith(fadeOut(animationSpec = tween(150)) + scaleOut(targetScale = 0.85f))
+            },
+            label = "buttonLoadingTransition"
+        ) { loading ->
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = contentColor,
+                    strokeWidth = 2.dp
                 )
-                val resolvedTrailingIcon = trailingIcon ?: if (trailingText == "→" || trailingText == "->") {
-                    Icons.AutoMirrored.Filled.ArrowForward
-                } else null
-
-                if (resolvedTrailingIcon != null) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = resolvedTrailingIcon,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                } else if (trailingText != null) {
-                    Spacer(modifier = Modifier.width(6.dp))
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    if (leadingIcon != null) {
+                        Icon(
+                            imageVector = leadingIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
                     Text(
-                        text = trailingText,
+                        text = text,
                         fontSize = size.fontSize.sp,
                         fontWeight = FontWeight.Bold,
                         style = TextStyle(
                             platformStyle = PlatformTextStyle(includeFontPadding = false)
                         )
                     )
+                    val resolvedTrailingIcon = trailingIcon ?: if (trailingText == "→" || trailingText == "->") {
+                        Icons.AutoMirrored.Filled.ArrowForward
+                    } else null
+
+                    if (resolvedTrailingIcon != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = resolvedTrailingIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    } else if (trailingText != null) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = trailingText,
+                            fontSize = size.fontSize.sp,
+                            fontWeight = FontWeight.Bold,
+                            style = TextStyle(
+                                platformStyle = PlatformTextStyle(includeFontPadding = false)
+                            )
+                        )
+                    }
                 }
             }
         }

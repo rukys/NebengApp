@@ -1,5 +1,8 @@
 package com.disinidev.nebeng.domain.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class VehicleInfo(
     val id: String? = null,
     val brand: String,
@@ -11,6 +14,7 @@ data class VehicleInfo(
     val isVerified: Boolean = false
 )
 
+@Serializable
 enum class VehicleType {
     CAR,
     MOTORCYCLE;

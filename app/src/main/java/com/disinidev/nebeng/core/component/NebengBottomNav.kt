@@ -22,9 +22,16 @@ import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -65,7 +72,16 @@ fun NebengBottomNav(
         ) {
             NebengTab.entries.forEach { tab ->
                 val isSelected = tab == selectedTab
-                val tint = if (isSelected) NebengColor.Primary900 else NebengColor.Gray400
+                val tint by animateColorAsState(
+                    targetValue = if (isSelected) NebengColor.Primary900 else NebengColor.Gray400,
+                    animationSpec = tween(durationMillis = 200),
+                    label = "bottomNavTint_${tab.name}"
+                )
+                val iconScale by animateFloatAsState(
+                    targetValue = if (isSelected) 1.08f else 1.0f,
+                    animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium),
+                    label = "bottomNavScale_${tab.name}"
+                )
                 val icon = if (isSelected) tab.selectedIcon else tab.unselectedIcon
 
                 Column(
@@ -81,7 +97,12 @@ fun NebengBottomNav(
                         imageVector = icon,
                         contentDescription = tab.label,
                         tint = tint,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier
+                            .size(22.dp)
+                            .graphicsLayer {
+                                scaleX = iconScale
+                                scaleY = iconScale
+                            }
                     )
                     Text(
                         text = tab.label,

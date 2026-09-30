@@ -56,7 +56,7 @@ fun ConversationsScreen(
     modifier: Modifier = Modifier,
     viewModel: ConversationsViewModel = hiltViewModel(),
     onTabSelected: (NebengTab) -> Unit = {},
-    onNavigateToChat: (driverName: String, vehicleInfo: String, pin: String, bookingId: String) -> Unit = { _, _, _, _ -> }
+    onNavigateToChat: (driverName: String, vehicleInfo: String, pin: String, bookingId: String, isTripCompleted: Boolean) -> Unit = { _, _, _, _, _ -> }
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -115,7 +115,7 @@ fun ConversationsScreen(
                         ConversationItemCard(
                             item = item,
                             onClick = {
-                                onNavigateToChat(item.driverName, item.vehicleInfo, item.pin, item.id)
+                                onNavigateToChat(item.driverName, item.vehicleInfo, item.pin, item.id, !item.isActiveRide)
                             }
                         )
                     }

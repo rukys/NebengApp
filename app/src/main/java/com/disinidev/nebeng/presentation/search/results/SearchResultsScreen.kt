@@ -1,5 +1,8 @@
 package com.disinidev.nebeng.presentation.search.results
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -149,10 +152,20 @@ fun SearchResultsScreen(
 
                     tabs.forEach { (filter, label) ->
                         val isSelected = state.selectedFilterTab == filter
+                        val bg by animateColorAsState(
+                            targetValue = if (isSelected) NebengColor.Primary900 else NebengColor.Primary50,
+                            animationSpec = tween(durationMillis = 200),
+                            label = "filterTabBg_${filter.name}"
+                        )
+                        val textColor by animateColorAsState(
+                            targetValue = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900,
+                            animationSpec = tween(durationMillis = 200),
+                            label = "filterTabTextColor_${filter.name}"
+                        )
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(NebengRadius.Full))
-                                .background(if (isSelected) NebengColor.Primary900 else NebengColor.Primary50)
+                                .background(bg)
                                 .clickable { viewModel.onTabFilterSelected(filter) }
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             contentAlignment = Alignment.Center
@@ -161,7 +174,7 @@ fun SearchResultsScreen(
                                 text = label,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900
+                                color = textColor
                             )
                         }
                     }
@@ -293,6 +306,7 @@ private fun RouteSummaryCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .animateContentSize()
             .clip(RoundedCornerShape(NebengRadius.Lg))
             .background(NebengColor.Primary50)
             .clickable(onClick = onClick)

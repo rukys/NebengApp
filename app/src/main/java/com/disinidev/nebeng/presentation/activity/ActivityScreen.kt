@@ -1,5 +1,13 @@
 package com.disinidev.nebeng.presentation.activity
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.disinidev.nebeng.core.component.CancellationReasonBottomSheet
 import com.disinidev.nebeng.core.component.NebengBottomNav
 import com.disinidev.nebeng.core.component.NebengButton
 import com.disinidev.nebeng.core.component.NebengButtonSize
@@ -265,46 +274,14 @@ fun ActivityScreen(
 
     val tripToCancel = bookingToCancel
     if (tripToCancel != null) {
-        AlertDialog(
-            onDismissRequest = { bookingToCancel = null },
-            title = {
-                Text(
-                    text = "Batalkan tebengan ini?",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NebengColor.Primary900
-                )
+        CancellationReasonBottomSheet(
+            onDismiss = { bookingToCancel = null },
+            onConfirmCancel = { reasonText ->
+                val id = tripToCancel
+                bookingToCancel = null
+                viewModel.cancelActiveTrip(id, reasonText)
             },
-            text = {
-                Text(
-                    text = "Kursi kamu akan diberikan ke penumpang lain. Tindakan ini tidak dapat dibatalkan.",
-                    fontSize = 13.sp,
-                    color = NebengColor.Gray600
-                )
-            },
-            confirmButton = {
-                NebengButton(
-                    text = "Ya, batalkan",
-                    onClick = {
-                        bookingToCancel = null
-                        viewModel.cancelActiveTrip(tripToCancel)
-                    },
-                    style = NebengButtonStyle.DANGER,
-                    size = NebengButtonSize.SMALL,
-                    isFullWidth = false
-                )
-            },
-            dismissButton = {
-                NebengButton(
-                    text = "Tetap nebeng",
-                    onClick = { bookingToCancel = null },
-                    style = NebengButtonStyle.SECONDARY,
-                    size = NebengButtonSize.SMALL,
-                    isFullWidth = false
-                )
-            },
-            containerColor = NebengColor.Primary0,
-            shape = RoundedCornerShape(16.dp)
+            isCancelling = state.isCancelling
         )
     }
 }
@@ -317,88 +294,97 @@ private fun ActivityTopBar(
     onToggleSearch: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (isSearchActive) {
-        Row(
-            modifier = modifier,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    AnimatedContent(
+        targetState = isSearchActive,
+        transitionSpec = {
+            (fadeIn(animationSpec = tween(200)) + slideInHorizontally { width -> if (targetState) width / 4 else -width / 4 })
+                .togetherWith(fadeOut(animationSpec = tween(150)) + slideOutHorizontally { width -> if (targetState) -width / 4 else width / 4 })
+        },
+        label = "activitySearchTopBar"
+    ) { searchActive ->
+        if (searchActive) {
             Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(NebengColor.Primary50)
-                    .padding(horizontal = 14.dp),
+                modifier = modifier,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = null,
-                    tint = NebengColor.Gray600,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                BasicTextField(
-                    value = searchQuery,
-                    onValueChange = onSearchQueryChange,
-                    singleLine = true,
-                    textStyle = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = NebengColor.Primary900
-                    ),
-                    cursorBrush = SolidColor(NebengColor.Primary900),
-                    modifier = Modifier.weight(1f)
-                )
-                if (searchQuery.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(NebengColor.Primary50)
+                        .padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Hapus pencarian",
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
                         tint = NebengColor.Gray600,
-                        modifier = Modifier
-                            .size(18.dp)
-                            .clickable { onSearchQueryChange("") }
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = onSearchQueryChange,
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = NebengColor.Primary900
+                        ),
+                        cursorBrush = SolidColor(NebengColor.Primary900),
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (searchQuery.isNotEmpty()) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Hapus pencarian",
+                            tint = NebengColor.Gray600,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clickable { onSearchQueryChange("") }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Batal",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NebengColor.Primary900,
+                    modifier = Modifier
+                        .clickable { onToggleSearch(false) }
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                )
+            }
+        } else {
+            Row(
+                modifier = modifier,
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Aktivitas",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NebengColor.Primary900
+                )
+
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(NebengColor.Primary50)
+                        .clickable { onToggleSearch(true) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Cari Aktivitas",
+                        tint = NebengColor.Primary900,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Batal",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = NebengColor.Primary900,
-                modifier = Modifier
-                    .clickable { onToggleSearch(false) }
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
-            )
-        }
-    } else {
-        Row(
-            modifier = modifier,
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "Aktivitas",
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold,
-                color = NebengColor.Primary900
-            )
-
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(NebengColor.Primary50)
-                    .clickable { onToggleSearch(true) },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Cari Aktivitas",
-                    tint = NebengColor.Primary900,
-                    modifier = Modifier.size(20.dp)
-                )
             }
         }
     }
@@ -418,8 +404,16 @@ private fun ActivityFilterChips(
     ) {
         items(ActivityFilter.entries) { filter ->
             val isSelected = filter == selectedFilter
-            val bg = if (isSelected) NebengColor.Primary900 else NebengColor.Primary50
-            val textColor = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900
+            val bg by animateColorAsState(
+                targetValue = if (isSelected) NebengColor.Primary900 else NebengColor.Primary50,
+                animationSpec = tween(durationMillis = 200),
+                label = "filterBg_${filter.name}"
+            )
+            val textColor by animateColorAsState(
+                targetValue = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900,
+                animationSpec = tween(durationMillis = 200),
+                label = "filterTextColor_${filter.name}"
+            )
             val label = when (filter) {
                 ActivityFilter.ONGOING -> "Berjalan ($activeCount)"
                 ActivityFilter.COMPLETED -> "Selesai ($completedCount)"

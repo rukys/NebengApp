@@ -138,4 +138,14 @@ class HomeViewModelTest {
         assertFalse(state.isRefreshing)
         assertTrue(state.popularRides.isNotEmpty())
     }
+
+    @Test
+    fun `loadUnreadNotificationCount updates unread count in state`() = runTest {
+        val notifRepo = mockk<com.disinidev.nebeng.domain.repository.NotificationRepository>()
+        coEvery { notifRepo.getUnreadCount() } returns Result.success(5)
+        val vm = HomeViewModel(rideRepository, userRepository, locationClient, notifRepo)
+        advanceUntilIdle()
+
+        assertEquals(5, vm.uiState.value.unreadNotificationCount)
+    }
 }

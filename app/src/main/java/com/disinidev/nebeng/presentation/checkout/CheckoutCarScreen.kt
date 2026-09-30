@@ -1,5 +1,12 @@
 package com.disinidev.nebeng.presentation.checkout
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -374,11 +381,22 @@ private fun SeatButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isSelected) NebengColor.Primary900 else NebengColor.Primary50,
+        animationSpec = tween(durationMillis = 200),
+        label = "seatButtonBg_$text"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900,
+        animationSpec = tween(durationMillis = 200),
+        label = "seatButtonContent_$text"
+    )
+
     Box(
         modifier = modifier
             .height(48.dp)
             .clip(RoundedCornerShape(NebengRadius.Md))
-            .background(if (isSelected) NebengColor.Primary900 else NebengColor.Primary50)
+            .background(backgroundColor)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -391,7 +409,7 @@ private fun SeatButton(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900,
+                    tint = contentColor,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -400,19 +418,25 @@ private fun SeatButton(
                 text = text,
                 fontSize = 13.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                color = if (isSelected) NebengColor.Primary0 else NebengColor.Primary900,
+                color = contentColor,
                 style = TextStyle(
                     platformStyle = PlatformTextStyle(includeFontPadding = false)
                 )
             )
-            if (isSelected) {
-                Spacer(modifier = Modifier.width(6.dp))
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = NebengColor.Primary0,
-                    modifier = Modifier.size(16.dp)
-                )
+            AnimatedVisibility(
+                visible = isSelected,
+                enter = fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.7f),
+                exit = fadeOut(animationSpec = tween(150)) + scaleOut(targetScale = 0.7f)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = NebengColor.Primary0,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }

@@ -236,7 +236,8 @@ class BookingRepositoryImpl @Inject constructor(
                             seatPosition = remote.seat_position,
                             pickupAddress = remote.rides?.pickup_address ?: "",
                             dropoffAddress = remote.rides?.dropoff_address ?: "",
-                            vehicleType = remote.rides?.vehicle_type ?: "car"
+                            vehicleType = remote.rides?.vehicle_type ?: "car",
+                            status = remote.status
                         )
                         localBookings[bookingId] = result
                         return@runCatching result
@@ -274,6 +275,41 @@ class BookingRepositoryImpl @Inject constructor(
                         filter {
                             eq("id", bookingId)
                         }
+                    }
+
+                    // Also update driver rating in users table if found
+                    try {
+                        val bookingDetails = getBookingById(bookingId).getOrNull()
+                        val driverName = bookingDetails?.driverName
+                        if (!driverName.isNullOrBlank()) {
+                            val drivers = supabaseClient.postgrest["users"].select {
+                                filter {
+                                    eq("full_name", driverName)
+                                }
+                                limit(1)
+                            }.decodeList<RemoteBookingUserDto>()
+
+                            val driver = drivers.firstOrNull()
+                            if (driver != null) {
+                                try {
+                                    supabaseClient.postgrest["users"].update(
+                                        mapOf("average_rating" to rating.toDouble())
+                                    ) {
+                                        filter { eq("id", driver.id) }
+                                    }
+                                } catch (_: Exception) {
+                                    try {
+                                        supabaseClient.postgrest["users"].update(
+                                            mapOf("rating" to rating.toDouble())
+                                        ) {
+                                            filter { eq("id", driver.id) }
+                                        }
+                                    } catch (_: Exception) {}
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("BookingRepository", "Error updating driver profile rating: ${e.message}", e)
                     }
                 } catch (e: Exception) {
                     Log.e("BookingRepository", "rateTrip Supabase error: ${e.message}", e)
@@ -336,7 +372,10 @@ class BookingRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun cancelBooking(bookingId: String): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun cancelBooking(
+        bookingId: String,
+        reason: String?
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             localBookings.remove(bookingId)
             localRequests[bookingId]?.let {
@@ -344,16 +383,29 @@ class BookingRepositoryImpl @Inject constructor(
             }
             if (runCatching { UUID.fromString(bookingId) }.isSuccess) {
                 try {
-                    supabaseClient.postgrest.from("bookings").update(
-                        mapOf("status" to "cancelled")
-                    ) {
+                    val payload = mutableMapOf<String, Any>("status" to "cancelled")
+                    if (!reason.isNullOrBlank()) {
+                        payload["cancellation_reason"] = reason
+                    }
+                    supabaseClient.postgrest.from("bookings").update(payload) {
                         filter {
                             eq("id", bookingId)
                         }
                     }
                 } catch (e: Exception) {
                     Log.e("BookingRepository", "cancelBooking Supabase error: ${e.message}", e)
-                    throw e
+                    // Fallback to updating status only if cancellation_reason column is not in schema
+                    try {
+                        supabaseClient.postgrest.from("bookings").update(
+                            mapOf("status" to "cancelled")
+                        ) {
+                            filter {
+                                eq("id", bookingId)
+                            }
+                        }
+                    } catch (fallbackEx: Exception) {
+                        Log.e("BookingRepository", "cancelBooking fallback error: ${fallbackEx.message}", fallbackEx)
+                    }
                 }
             }
             Unit

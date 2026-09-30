@@ -3,6 +3,7 @@ package com.disinidev.nebeng.presentation.chat
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.disinidev.nebeng.domain.repository.BookingRepository
 import com.disinidev.nebeng.domain.repository.ChatRepository
 import com.disinidev.nebeng.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,26 +18,47 @@ import javax.inject.Inject
 class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val chatRepository: ChatRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val bookingRepository: BookingRepository? = null
 ) : ViewModel() {
 
     val driverName: String = savedStateHandle.get<String>("driverName") ?: "Pengemudi"
     val vehicleInfo: String = savedStateHandle.get<String>("vehicleInfo") ?: "-"
     val pin: String = savedStateHandle.get<String>("pin") ?: ""
     val bookingId: String = savedStateHandle.get<String>("bookingId") ?: ""
+    private val initialIsTripCompleted: Boolean = savedStateHandle.get<Boolean>("isTripCompleted") ?: false
 
     private val _uiState = MutableStateFlow(
         ChatUiState(
             driverName = driverName,
             vehicleInfo = vehicleInfo,
             pin = pin,
-            messages = emptyList()
+            messages = emptyList(),
+            isTripCompleted = initialIsTripCompleted
         )
     )
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     init {
+        if (bookingId.isNotBlank()) {
+            chatRepository.setActiveChat(bookingId)
+        }
         observeMessages()
+        checkBookingTripStatus()
+    }
+
+    private fun checkBookingTripStatus() {
+        if (bookingId.isNotBlank() && bookingRepository != null) {
+            viewModelScope.launch {
+                val bookingResult = bookingRepository.getBookingById(bookingId).getOrNull()
+                if (bookingResult != null) {
+                    val isCompleted = bookingResult.status in listOf("done", "completed", "cancelled")
+                    if (isCompleted) {
+                        _uiState.update { it.copy(isTripCompleted = true) }
+                    }
+                }
+            }
+        }
     }
 
     private fun observeMessages() {
@@ -49,10 +71,12 @@ class ChatViewModel @Inject constructor(
     }
 
     fun onInputChange(text: String) {
+        if (_uiState.value.isTripCompleted) return
         _uiState.update { it.copy(inputMessage = text) }
     }
 
     fun sendMessage() {
+        if (_uiState.value.isTripCompleted) return
         val currentInput = _uiState.value.inputMessage.trim()
         if (currentInput.isEmpty()) return
 
@@ -67,6 +91,13 @@ class ChatViewModel @Inject constructor(
                 senderName = myName,
                 text = currentInput
             )
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        if (bookingId.isNotBlank()) {
+            chatRepository.setActiveChat(null)
         }
     }
 }

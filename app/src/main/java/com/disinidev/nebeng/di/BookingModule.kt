@@ -65,4 +65,10 @@ abstract class BookingModule {
     abstract fun bindNotificationRepository(
         impl: NotificationRepositoryImpl
     ): NotificationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRoutineRepository(
+        impl: com.disinidev.nebeng.data.repository.RoutineRepositoryImpl
+    ): com.disinidev.nebeng.domain.repository.RoutineRepository
 }

@@ -9,7 +9,8 @@ data class BookingResult(
     val seatPosition: String = "",
     val pickupAddress: String = "",
     val dropoffAddress: String = "",
-    val vehicleType: String = "car"
+    val vehicleType: String = "car",
+    val status: String = "confirmed"
 )
 
 data class DriverBookingRequest(
@@ -63,7 +64,7 @@ interface BookingRepository {
 
     suspend fun respondBookingRequest(bookingId: String, accept: Boolean): Result<Unit>
  
-    suspend fun cancelBooking(bookingId: String): Result<Unit>
+    suspend fun cancelBooking(bookingId: String, reason: String? = null): Result<Unit>
 
     suspend fun getUserActivities(userUuid: String): Result<UserActivities>
 }

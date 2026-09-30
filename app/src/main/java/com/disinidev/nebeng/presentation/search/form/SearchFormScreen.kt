@@ -1,6 +1,7 @@
 package com.disinidev.nebeng.presentation.search.form
 
 import android.app.TimePickerDialog
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -73,6 +74,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.disinidev.nebeng.R
 import com.disinidev.nebeng.core.component.NebengButton
+import com.disinidev.nebeng.core.component.PlaceSuggestionsCard
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
 import com.disinidev.nebeng.domain.model.PlaceSuggestion
@@ -138,21 +140,17 @@ fun SearchFormScreen(
         ) {
             // 1. Route Input Container (Grey Box with Dropdown Popups)
             RouteInputContainer(
-                origin = state.origin,
-                destination = state.destination,
-                selectedTime = state.selectedTime,
-                vehicleType = state.vehicleType,
-                activeField = state.activeField,
-                suggestions = state.suggestions,
-                isSearchingPlaces = state.isSearchingPlaces,
-                onOriginChange = viewModel::onOriginChange,
-                onDestinationChange = viewModel::onDestinationChange,
-                onClearOrigin = viewModel::onClearOrigin,
-                onSwapLocations = viewModel::onSwapLocations,
-                onTimeChange = viewModel::onTimeChange,
-                onVehicleTypeChange = viewModel::onVehicleTypeChange,
-                onSelectSuggestion = viewModel::onSelectSuggestion,
-                onDismissSuggestions = viewModel::onDismissSuggestions
+                state = state,
+                actions = RouteInputActions(
+                    onOriginChange = viewModel::onOriginChange,
+                    onDestinationChange = viewModel::onDestinationChange,
+                    onClearOrigin = viewModel::onClearOrigin,
+                    onSwapLocations = viewModel::onSwapLocations,
+                    onTimeChange = viewModel::onTimeChange,
+                    onVehicleTypeChange = viewModel::onVehicleTypeChange,
+                    onSelectSuggestion = viewModel::onSelectSuggestion,
+                    onDismissSuggestions = viewModel::onDismissSuggestions
+                )
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -197,6 +195,9 @@ fun SearchFormScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     state.recentSearches.forEach { history ->
@@ -261,25 +262,39 @@ private fun SearchFormTopBar(
     }
 }
 
+private data class RouteInputActions(
+    val onOriginChange: (String) -> Unit,
+    val onDestinationChange: (String) -> Unit,
+    val onClearOrigin: () -> Unit,
+    val onSwapLocations: () -> Unit,
+    val onTimeChange: (String) -> Unit,
+    val onVehicleTypeChange: (String) -> Unit,
+    val onSelectSuggestion: (PlaceSuggestion) -> Unit,
+    val onDismissSuggestions: () -> Unit
+)
+
 @Composable
 private fun RouteInputContainer(
-    origin: String,
-    destination: String,
-    selectedTime: String,
-    vehicleType: String,
-    activeField: ActiveSearchField,
-    suggestions: List<PlaceSuggestion>,
-    isSearchingPlaces: Boolean,
-    onOriginChange: (String) -> Unit,
-    onDestinationChange: (String) -> Unit,
-    onClearOrigin: () -> Unit,
-    onSwapLocations: () -> Unit,
-    onTimeChange: (String) -> Unit,
-    onVehicleTypeChange: (String) -> Unit,
-    onSelectSuggestion: (PlaceSuggestion) -> Unit,
-    onDismissSuggestions: () -> Unit,
+    state: SearchFormUiState,
+    actions: RouteInputActions,
     modifier: Modifier = Modifier
 ) {
+    val origin = state.origin
+    val destination = state.destination
+    val selectedTime = state.selectedTime
+    val vehicleType = state.vehicleType
+    val activeField = state.activeField
+    val suggestions = state.suggestions
+    val isSearchingPlaces = state.isSearchingPlaces
+
+    val onOriginChange = actions.onOriginChange
+    val onDestinationChange = actions.onDestinationChange
+    val onClearOrigin = actions.onClearOrigin
+    val onSwapLocations = actions.onSwapLocations
+    val onTimeChange = actions.onTimeChange
+    val onVehicleTypeChange = actions.onVehicleTypeChange
+    val onSelectSuggestion = actions.onSelectSuggestion
+    val onDismissSuggestions = actions.onDismissSuggestions
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -372,7 +387,7 @@ private fun RouteInputContainer(
                     )
                 ) {
                     Box(modifier = Modifier.width(widthDp)) {
-                        SuggestionsCard(
+                        PlaceSuggestionsCard(
                             suggestions = suggestions,
                             isSearching = isSearchingPlaces,
                             onSelectSuggestion = onSelectSuggestion,
@@ -501,7 +516,7 @@ private fun RouteInputContainer(
                     )
                 ) {
                     Box(modifier = Modifier.width(widthDp)) {
-                        SuggestionsCard(
+                        PlaceSuggestionsCard(
                             suggestions = suggestions,
                             isSearching = isSearchingPlaces,
                             onSelectSuggestion = onSelectSuggestion,
@@ -772,124 +787,6 @@ private fun SearchHistoryCard(
             modifier = Modifier.size(18.dp)
         )
     }
-}
-
-@Composable
-private fun SuggestionsCard(
-    suggestions: List<PlaceSuggestion>,
-    isSearching: Boolean,
-    onSelectSuggestion: (PlaceSuggestion) -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(max = 280.dp),
-        shape = RoundedCornerShape(NebengRadius.Lg),
-        color = NebengColor.Primary0,
-        shadowElevation = 10.dp,
-        border = BorderStroke(1.dp, NebengColor.Gray200)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "SARAN LOKASI (OPENSTREETMAP)",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = NebengColor.Gray600,
-                modifier = Modifier.weight(1f)
-            )
-
-            Text(
-                text = "Tutup",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = NebengColor.Primary900,
-                modifier = Modifier.clickable(onClick = onDismiss)
-            )
-        }
-
-        if (isSearching) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(vertical = 4.dp)
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 2.dp,
-                    color = NebengColor.Primary900
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Mencari alamat...",
-                    fontSize = 12.sp,
-                    color = NebengColor.Gray600
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        suggestions.forEachIndexed { index, suggestion ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(NebengRadius.Sm))
-                    .clickable { onSelectSuggestion(suggestion) }
-                    .padding(vertical = 8.dp, horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(CircleShape)
-                        .background(NebengColor.Primary50),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "📍", fontSize = 14.sp)
-                }
-
-                Spacer(modifier = Modifier.width(10.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = suggestion.name,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = NebengColor.Primary900,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = suggestion.fullAddress,
-                        fontSize = 11.sp,
-                        color = NebengColor.Gray600,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            if (index < suggestions.size - 1) {
-                HorizontalDivider(
-                    color = NebengColor.Gray100,
-                    thickness = 0.8.dp,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-            }
-        }
-    }
-}
 }
 
 

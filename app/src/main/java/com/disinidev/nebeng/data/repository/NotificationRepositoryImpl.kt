@@ -33,6 +33,8 @@ class NotificationRepositoryImpl @Inject constructor(
     private val userRepository: UserRepository
 ) : NotificationRepository {
 
+    private var cachedUnreadCount: Int? = null
+
     override suspend fun getNotifications(): Result<List<Notification>> {
         return try {
             val userUuid = userRepository.getCurrentUserUuid()
@@ -62,8 +64,10 @@ class NotificationRepositoryImpl @Inject constructor(
                         createdAt = createdAt
                     )
                 }
+                cachedUnreadCount = notifications.count { !it.isRead }
                 Result.success(notifications)
             } else {
+                cachedUnreadCount = 0
                 Result.success(emptyList())
             }
         } catch (e: CancellationException) {
@@ -74,7 +78,28 @@ class NotificationRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getUnreadCount(): Result<Int> {
+        return try {
+            val userUuid = userRepository.getCurrentUserUuid()
+            val unreadList = supabaseClient.postgrest["notifications"].select {
+                filter {
+                    eq("user_id", userUuid)
+                    eq("is_read", false)
+                }
+            }.decodeList<NotificationDto>()
+            val count = unreadList.size
+            cachedUnreadCount = count
+            Result.success(count)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("NotificationRepo", "Error getting unread count: ${e.message}", e)
+            Result.success(cachedUnreadCount ?: 0)
+        }
+    }
+
     override suspend fun markAsRead(notificationId: String): Result<Unit> {
+        cachedUnreadCount = (cachedUnreadCount?.minus(1))?.coerceAtLeast(0)
         return try {
             supabaseClient.postgrest["notifications"].update(
                 mapOf("is_read" to true)
@@ -93,6 +118,7 @@ class NotificationRepositoryImpl @Inject constructor(
     }
 
     override suspend fun markAllAsRead(): Result<Unit> {
+        cachedUnreadCount = 0
         return try {
             val userUuid = userRepository.getCurrentUserUuid()
             supabaseClient.postgrest["notifications"].update(

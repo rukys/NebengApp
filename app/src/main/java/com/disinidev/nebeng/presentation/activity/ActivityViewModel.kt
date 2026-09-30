@@ -118,10 +118,10 @@ class ActivityViewModel @Inject constructor(
         }
     }
 
-    fun cancelActiveTrip(bookingId: String) {
+    fun cancelActiveTrip(bookingId: String, reason: String? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(isCancelling = true, errorMessage = null, successMessage = null) }
-            bookingRepository.cancelBooking(bookingId)
+            bookingRepository.cancelBooking(bookingId, reason)
                 .onSuccess {
                     _uiState.update {
                         it.copy(

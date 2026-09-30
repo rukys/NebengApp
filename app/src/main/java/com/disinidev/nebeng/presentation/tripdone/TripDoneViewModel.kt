@@ -47,6 +47,17 @@ class TripDoneViewModel @Inject constructor(
         _uiState.update { it.copy(rating = newRating) }
     }
 
+    fun onTagToggled(tag: String) {
+        _uiState.update { state ->
+            val updated = if (state.selectedTags.contains(tag)) {
+                state.selectedTags - tag
+            } else {
+                state.selectedTags + tag
+            }
+            state.copy(selectedTags = updated)
+        }
+    }
+
     fun onReviewTextChanged(text: String) {
         _uiState.update { it.copy(reviewText = text) }
     }
@@ -57,10 +68,19 @@ class TripDoneViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true) }
             try {
+                val tagsString = _uiState.value.selectedTags.joinToString(", ")
+                val userComment = _uiState.value.reviewText.trim()
+                val finalReview = when {
+                    tagsString.isNotBlank() && userComment.isNotBlank() -> "$tagsString — $userComment"
+                    tagsString.isNotBlank() -> tagsString
+                    userComment.isNotBlank() -> userComment
+                    else -> null
+                }
+
                 bookingRepository.rateTrip(
                     bookingId = bookingId,
                     rating = _uiState.value.rating,
-                    review = _uiState.value.reviewText
+                    review = finalReview
                 )
                 _uiState.update { it.copy(isSubmitting = false, isCompleted = true) }
                 onSuccess()

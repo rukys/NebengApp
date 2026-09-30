@@ -29,6 +29,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -58,6 +59,23 @@ fun ChatScreen(
     onNavigateBack: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    ChatContent(
+        state = state,
+        onInputChange = viewModel::onInputChange,
+        onSendClick = viewModel::sendMessage,
+        onNavigateBack = onNavigateBack,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun ChatContent(
+    state: ChatUiState,
+    onInputChange: (String) -> Unit = {},
+    onSendClick: () -> Unit = {},
+    onNavigateBack: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     val listState = rememberLazyListState()
 
     // Automatically scroll to bottom when new messages arrive
@@ -75,6 +93,7 @@ fun ChatScreen(
                 driverName = state.driverName,
                 vehicleInfo = state.vehicleInfo,
                 pin = state.pin,
+                isTripCompleted = state.isTripCompleted,
                 onBackClick = onNavigateBack,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -84,17 +103,27 @@ fun ChatScreen(
             )
         },
         bottomBar = {
-            ChatInputBar(
-                inputText = state.inputMessage,
-                onInputChange = viewModel::onInputChange,
-                onSendClick = viewModel::sendMessage,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(NebengColor.Primary0)
-                    .navigationBarsPadding()
-                    .imePadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            )
+            if (state.isTripCompleted) {
+                ChatCompletedNotice(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(NebengColor.Primary0)
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+            } else {
+                ChatInputBar(
+                    inputText = state.inputMessage,
+                    onInputChange = onInputChange,
+                    onSendClick = onSendClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(NebengColor.Primary0)
+                        .navigationBarsPadding()
+                        .imePadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+            }
         }
     ) { innerPadding ->
         // Chat messages aligned to the bottom or empty prompt
@@ -107,7 +136,11 @@ fun ChatScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Mulai obrolan untuk koordinasi titik jemput dan jadwal tebengan.",
+                    text = if (state.isTripCompleted) {
+                        "Tidak ada riwayat obrolan untuk perjalanan ini."
+                    } else {
+                        "Mulai obrolan untuk koordinasi titik jemput dan jadwal tebengan."
+                    },
                     fontSize = 13.sp,
                     color = NebengColor.Gray600,
                     textAlign = TextAlign.Center
@@ -123,7 +156,10 @@ fun ChatScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 items(state.messages, key = { it.id }) { message ->
-                    ChatBubbleItem(message = message)
+                    ChatBubbleItem(
+                        message = message,
+                        modifier = Modifier.animateItem()
+                    )
                     Spacer(modifier = Modifier.height(10.dp))
                 }
             }
@@ -136,6 +172,7 @@ private fun ChatTopBar(
     driverName: String,
     vehicleInfo: String,
     pin: String,
+    isTripCompleted: Boolean = false,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -164,18 +201,42 @@ private fun ChatTopBar(
 
         // Title Column (Driver Name & Subtitle)
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = driverName,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = NebengColor.Primary900,
-                style = TextStyle(
-                    platformStyle = PlatformTextStyle(includeFontPadding = false)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = driverName,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NebengColor.Primary900,
+                    style = TextStyle(
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    )
                 )
-            )
+                if (isTripCompleted) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(NebengRadius.Full))
+                            .background(NebengColor.Gray200)
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "Selesai",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = NebengColor.Primary900
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "$vehicleInfo • PIN: $pin",
+                text = if (isTripCompleted) {
+                    if (vehicleInfo.isNotBlank() && vehicleInfo != "-") "$vehicleInfo • Selesai" else "Perjalanan selesai"
+                } else {
+                    "$vehicleInfo • PIN: $pin"
+                },
                 fontSize = 12.sp,
                 color = NebengColor.Gray400,
                 style = TextStyle(
@@ -288,6 +349,63 @@ private fun ChatInputBar(
                 tint = NebengColor.Primary0,
                 modifier = Modifier.size(19.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun ChatCompletedNotice(
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(NebengRadius.Lg))
+            .background(NebengColor.Primary50)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(NebengColor.Gray200),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = NebengColor.Primary900,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "Perjalanan telah selesai",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NebengColor.Primary900,
+                    style = TextStyle(
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    )
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Obrolan ditutup. Kamu tetap bisa membaca riwayat pesan di sini.",
+                    fontSize = 12.sp,
+                    color = NebengColor.Gray600,
+                    lineHeight = 16.sp,
+                    style = TextStyle(
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    )
+                )
+            }
         }
     }
 }
