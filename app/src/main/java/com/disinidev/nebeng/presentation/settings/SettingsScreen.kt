@@ -1,5 +1,6 @@
 package com.disinidev.nebeng.presentation.settings
 
+import com.disinidev.nebeng.BuildConfig
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CheckCircle
@@ -42,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,9 +61,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.disinidev.nebeng.core.component.HelpFaqBottomSheet
 import com.disinidev.nebeng.core.component.NebengButton
 import com.disinidev.nebeng.core.component.NebengButtonStyle
 import com.disinidev.nebeng.core.designsystem.NebengColor
+import com.disinidev.nebeng.core.designsystem.NebengRadius
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,10 +84,23 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showEditProfileSheet by remember { mutableStateOf(false) }
-    var showSecuritySheet by remember { mutableStateOf(false) }
     var showDocsSheet by remember { mutableStateOf(false) }
     var showNotifSheet by remember { mutableStateOf(false) }
     var showLanguageSheet by remember { mutableStateOf(false) }
+    var showHelpSheet by remember { mutableStateOf(false) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshProfile()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     LaunchedEffect(state.message) {
         state.message?.let {
@@ -145,12 +166,12 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Card 2: Keamanan & Sandi
+            // Card 2: Kata Sandi Akun
             SettingsMenuCard(
                 icon = Icons.Outlined.Lock,
-                title = "Keamanan & Sandi",
-                subtitle = "PIN NebengPay, ganti password",
-                onClick = { showSecuritySheet = true }
+                title = "Kata Sandi Akun",
+                subtitle = "Ubah atau perbarui kata sandi akun",
+                onClick = onNavigateToChangePassword
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -159,8 +180,8 @@ fun SettingsScreen(
             SettingsMenuCard(
                 icon = Icons.Outlined.Badge,
                 title = "Verifikasi Dokumen",
-                subtitle = "KTP, SIM & LinkedIn terverifikasi",
-                trailingBadge = "AKTIF ✓",
+                subtitle = if (state.isDocumentVerified) "e-KTP terverifikasi resmi" else "e-KTP belum diunggah",
+                trailingBadge = if (state.isDocumentVerified) "AKTIF ✓" else "BELUM ✓",
                 onClick = { showDocsSheet = true }
             )
 
@@ -191,6 +212,26 @@ fun SettingsScreen(
                 title = "Bahasa Aplikasi",
                 trailingText = state.selectedLanguage,
                 onClick = { showLanguageSheet = true }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Section 3: BANTUAN & INFORMASI
+            Text(
+                text = "BANTUAN & INFORMASI",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = NebengColor.Gray600,
+                letterSpacing = 0.5.sp,
+                modifier = Modifier.padding(start = 2.dp, bottom = 8.dp)
+            )
+
+            // Card 6: Pusat Bantuan & FAQ
+            SettingsMenuCard(
+                icon = Icons.AutoMirrored.Outlined.HelpOutline,
+                title = "Pusat Bantuan & FAQ",
+                subtitle = "Jawaban lengkap, panduan, & kontak bantuan",
+                onClick = { showHelpSheet = true }
             )
 
             Spacer(modifier = Modifier.height(36.dp))
@@ -229,7 +270,7 @@ fun SettingsScreen(
 
             // Footer note
             Text(
-                text = "Nebeng App v2.4.0 • Uber Base UI System",
+                text = "Nebeng App v${BuildConfig.VERSION_NAME}",
                 fontSize = 11.sp,
                 color = NebengColor.Gray400,
                 textAlign = TextAlign.Center,
@@ -264,7 +305,6 @@ fun SettingsScreen(
                     onClick = {
                         viewModel.logout {
                             onLogoutSuccess()
-                            onNavigateBack()
                         }
                     }
                 ) {
@@ -296,15 +336,17 @@ fun SettingsScreen(
         )
     }
 
-    if (showSecuritySheet) {
-        SecurityBottomSheet(
-            onDismiss = { showSecuritySheet = false },
-            onNavigateToChangePassword = onNavigateToChangePassword
-        )
-    }
+
 
     if (showDocsSheet) {
-        DocumentVerificationBottomSheet(onDismiss = { showDocsSheet = false })
+        DocumentVerificationBottomSheet(
+            isKtpVerified = state.isDocumentVerified,
+            onNavigateToUpload = {
+                showDocsSheet = false
+                onNavigateToEditProfile()
+            },
+            onDismiss = { showDocsSheet = false }
+        )
     }
 
     if (showNotifSheet) {
@@ -324,6 +366,10 @@ fun SettingsScreen(
             },
             onDismiss = { showLanguageSheet = false }
         )
+    }
+
+    if (showHelpSheet) {
+        HelpFaqBottomSheet(onDismiss = { showHelpSheet = false })
     }
 }
 
@@ -600,76 +646,15 @@ private fun EditProfileBottomSheet(
     }
 }
 
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SecurityBottomSheet(
-    onDismiss: () -> Unit,
-    onNavigateToChangePassword: () -> Unit = {}
+private fun DocumentVerificationBottomSheet(
+    isKtpVerified: Boolean,
+    onNavigateToUpload: () -> Unit,
+    onDismiss: () -> Unit
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = NebengColor.Primary0
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 12.dp)
-        ) {
-            Text(
-                text = "Keamanan & Sandi",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = NebengColor.Primary900
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(NebengColor.Primary50)
-                    .padding(16.dp)
-            ) {
-                Text("Status PIN Nebeng", fontSize = 11.sp, color = NebengColor.Gray600)
-                Text("PIN 6-digit Terpasang ✓", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = NebengColor.Primary900)
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text("Metode Autentikasi", fontSize = 11.sp, color = NebengColor.Gray600)
-                Text("Nomor HP OTP & Google Account", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = NebengColor.Primary900)
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            NebengButton(
-                text = "Ubah Kata Sandi ➔",
-                onClick = {
-                    onDismiss()
-                    onNavigateToChangePassword()
-                },
-                style = NebengButtonStyle.PRIMARY,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            NebengButton(
-                text = "Tutup",
-                onClick = onDismiss,
-                style = NebengButtonStyle.SECONDARY,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DocumentVerificationBottomSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -687,6 +672,15 @@ private fun DocumentVerificationBottomSheet(onDismiss: () -> Unit) {
                 color = NebengColor.Primary900
             )
 
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Dokumen identitas resmi komuter untuk menjamin keamanan dan rasa saling percaya di komunitas Nebeng.",
+                fontSize = 12.sp,
+                color = NebengColor.Gray600,
+                lineHeight = 18.sp
+            )
+
             Spacer(modifier = Modifier.height(16.dp))
 
             Column(
@@ -696,34 +690,112 @@ private fun DocumentVerificationBottomSheet(onDismiss: () -> Unit) {
                     .background(NebengColor.Primary50)
                     .padding(16.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("e-KTP Nasional", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = NebengColor.Primary900, modifier = Modifier.weight(1f))
-                    Text("TERVERIFIKASI ✓", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NebengColor.Primary900)
+                // e-KTP Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "e-KTP Nasional",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = NebengColor.Primary900
+                        )
+                        Text(
+                            text = if (isKtpVerified) "Foto KTP tersimpan aman & tervalidasi" else "Wajib diunggah untuk keamanan",
+                            fontSize = 11.sp,
+                            color = NebengColor.Gray600
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(NebengRadius.Full))
+                            .background(if (isKtpVerified) Color(0xFFE8F5E9) else Color(0xFFFFF3E0))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = if (isKtpVerified) "TERVERIFIKASI ✓" else "BELUM DIUNGGAH",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isKtpVerified) Color(0xFF2E7D32) else Color(0xFFE65100)
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("SIM A / C Pengemudi", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = NebengColor.Primary900, modifier = Modifier.weight(1f))
-                    Text("TERVERIFIKASI ✓", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NebengColor.Primary900)
-                }
+                // SIM A / C Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "SIM A / C (Pengemudi)",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = NebengColor.Primary900
+                        )
+                        Text(
+                            text = "Diperlukan jika Anda ingin membuka tebengan",
+                            fontSize = 11.sp,
+                            color = NebengColor.Gray600
+                        )
+                    }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Email Kantor SCBD", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = NebengColor.Primary900, modifier = Modifier.weight(1f))
-                    Text("TERVERIFIKASI ✓", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NebengColor.Primary900)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(NebengRadius.Full))
+                            .background(NebengColor.Gray100)
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "OPSIONAL",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NebengColor.Gray600
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            NebengButton(
-                text = "Tutup",
-                onClick = onDismiss,
-                style = NebengButtonStyle.PRIMARY,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (!isKtpVerified) {
+                NebengButton(
+                    text = "Unggah e-KTP di Edit Profil ➔",
+                    onClick = onNavigateToUpload,
+                    style = NebengButtonStyle.PRIMARY,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                NebengButton(
+                    text = "Nanti Saja",
+                    onClick = onDismiss,
+                    style = NebengButtonStyle.SECONDARY,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                NebengButton(
+                    text = "Perbarui Dokumen di Edit Profil",
+                    onClick = onNavigateToUpload,
+                    style = NebengButtonStyle.SECONDARY,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                NebengButton(
+                    text = "Tutup",
+                    onClick = onDismiss,
+                    style = NebengButtonStyle.PRIMARY,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -823,7 +895,7 @@ private fun LanguageBottomSheet(
                 .padding(horizontal = 24.dp, vertical = 12.dp)
         ) {
             Text(
-                text = "Pilih Bahasa",
+                text = "Bahasa Aplikasi",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = NebengColor.Primary900
@@ -831,47 +903,62 @@ private fun LanguageBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            val languages = listOf("Bahasa Indonesia", "English")
-
-            languages.forEach { lang ->
-                val isSelected = lang == selectedLanguage
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isSelected) NebengColor.Primary50 else NebengColor.Primary0)
-                        .border(
-                            1.dp,
-                            if (isSelected) NebengColor.Primary900 else NebengColor.Gray200,
-                            RoundedCornerShape(12.dp)
-                        )
-                        .clickable { onSelect(lang) }
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            // Active Language Card
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(NebengColor.Primary50)
+                    .border(1.dp, NebengColor.Primary900, RoundedCornerShape(12.dp))
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = lang,
+                        text = "Bahasa Indonesia",
                         fontSize = 14.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = NebengColor.Primary900,
-                        modifier = Modifier.weight(1f)
+                        fontWeight = FontWeight.Bold,
+                        color = NebengColor.Primary900
                     )
-                    if (isSelected) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = NebengColor.Primary900,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Bahasa Default Sistem",
+                        fontSize = 12.sp,
+                        color = NebengColor.Gray600
+                    )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = NebengColor.Primary900,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Informative Note (Option B)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(NebengColor.Gray50)
+                    .border(1.dp, NebengColor.Gray200, RoundedCornerShape(12.dp))
+                    .padding(14.dp)
+            ) {
+                Text(
+                    text = "Saat ini Nebeng hanya tersedia dalam Bahasa Indonesia untuk mendukung ekosistem komuter lokal secara optimal.",
+                    fontSize = 12.sp,
+                    color = NebengColor.Gray600,
+                    lineHeight = 18.sp
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
             NebengButton(
-                text = "Tutup",
+                text = "Mengerti",
                 onClick = onDismiss,
                 style = NebengButtonStyle.PRIMARY,
                 modifier = Modifier.fillMaxWidth()

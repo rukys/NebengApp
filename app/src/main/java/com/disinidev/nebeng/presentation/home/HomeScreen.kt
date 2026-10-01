@@ -1,8 +1,16 @@
 package com.disinidev.nebeng.presentation.home
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,9 +28,12 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,13 +43,21 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -152,8 +171,24 @@ fun HomeScreen(
             ) {
                 // 1. Search Card
                 item {
+                    val vehicleTypeParam = when (state.selectedService) {
+                        ServiceType.MOTORCYCLE -> "motorcycle"
+                        ServiceType.CAR -> "car"
+                        else -> "all"
+                    }
                     SearchCard(
-                        onClick = { onNavigateToSearch(if (state.selectedService == ServiceType.MOTORCYCLE) "motorcycle" else "car") }
+                        popularDestinations = state.popularDestinations,
+                        onClick = { onNavigateToSearch(if (state.selectedService == ServiceType.MOTORCYCLE) "motorcycle" else "car") },
+                        onQuickDestinationClick = { destination ->
+                            onNavigateToSearchResults(
+                                state.userLocation.ifBlank { "Lokasi Sekitarmu" },
+                                destination,
+                                vehicleTypeParam,
+                                state.userLat,
+                                state.userLng,
+                                "Hari Ini"
+                            )
+                        }
                     )
                 }
 
@@ -281,7 +316,7 @@ private fun HomeHeader(
         // Greeting & Location
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Halo, $greeting 👋",
+                text = "Halo, $greeting",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = NebengColor.Primary900
@@ -290,14 +325,19 @@ private fun HomeHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 2.dp)
             ) {
-                Text(
-                    text = "📍 ",
-                    fontSize = 11.sp
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = NebengColor.Primary900,
+                    modifier = Modifier.size(14.dp)
                 )
+                Spacer(modifier = Modifier.width(3.dp))
                 Text(
                     text = location,
                     fontSize = 13.sp,
-                    color = NebengColor.Gray600
+                    color = NebengColor.Gray600,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -351,35 +391,62 @@ private fun HomeHeader(
 
 @Composable
 private fun SearchCard(
+    popularDestinations: List<String>,
     onClick: () -> Unit,
+    onQuickDestinationClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val topDest1 = popularDestinations.getOrNull(0) ?: "SCBD"
+    val topDest2 = popularDestinations.getOrNull(1) ?: "Sudirman"
+
+    val tickerPlaceholders = remember(topDest1, topDest2) {
+        listOf(
+            "Cari rute kantor, stasiun, gedung...",
+            "Cari tebengan ke $topDest1...",
+            "Cari rekan kantor searah...",
+            "Mau tebengan ke $topDest2?",
+            "Cari tebengan mobil & motor...",
+            "Cari rute stasiun KRL / MRT..."
+        )
+    }
+
+    var placeholderIndex by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(tickerPlaceholders) {
+        placeholderIndex = 0
+        while (isActive) {
+            delay(3000L)
+            placeholderIndex = (placeholderIndex + 1) % tickerPlaceholders.size
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(NebengRadius.Lg))
             .background(NebengColor.Primary50)
+            .border(1.dp, NebengColor.Gray200, RoundedCornerShape(NebengRadius.Lg))
             .padding(16.dp)
     ) {
-        // Question Title
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "●",
-                fontSize = 10.sp,
-                color = NebengColor.Primary900,
-                modifier = Modifier.padding(end = 8.dp)
-            )
+        // Card Header: Title & Subtitle
+        Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "Mau nebeng ke mana hari ini?",
-                fontSize = 15.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = NebengColor.Primary900
             )
+            Text(
+                text = "Temukan tebengan searah & hemat ongkos",
+                fontSize = 12.sp,
+                color = NebengColor.Gray600,
+                modifier = Modifier.padding(top = 2.dp)
+            )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Clickable Search Field
+        // Clickable Search Field (Elevated Superapp input)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -387,21 +454,129 @@ private fun SearchCard(
                 .background(NebengColor.Primary0)
                 .border(1.dp, NebengColor.Gray200, RoundedCornerShape(NebengRadius.Md))
                 .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 13.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = null,
-                tint = NebengColor.Gray400,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = "Cari rute kantor, stasiun, gedung...",
-                fontSize = 14.sp,
-                color = NebengColor.Gray400
-            )
+            // High-contrast Search Badge
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(NebengColor.Primary900),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Cari",
+                    tint = NebengColor.Primary0,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Two-tier text content: Label + Animated Ticker
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "Tujuan tebengan",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = NebengColor.Gray600
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clipToBounds(),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    AnimatedContent(
+                        targetState = placeholderIndex,
+                        transitionSpec = {
+                            (slideInVertically(
+                                animationSpec = tween(durationMillis = 350),
+                                initialOffsetY = { it }
+                            ) + fadeIn(
+                                animationSpec = tween(durationMillis = 350)
+                            )).togetherWith(
+                                slideOutVertically(
+                                    animationSpec = tween(durationMillis = 350),
+                                    targetOffsetY = { -it }
+                                ) + fadeOut(
+                                    animationSpec = tween(durationMillis = 350)
+                                )
+                            )
+                        },
+                        label = "searchPlaceholderTicker"
+                    ) { targetIndex ->
+                        val safeIndex = if (targetIndex in tickerPlaceholders.indices) targetIndex else 0
+                        Text(
+                            text = tickerPlaceholders[safeIndex],
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = NebengColor.Primary900,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Action Forward Button
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(NebengColor.Primary50),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = NebengColor.Primary900,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Quick Destination Chips
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            popularDestinations.forEach { destination ->
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(NebengRadius.Full))
+                        .background(NebengColor.Primary0)
+                        .border(1.dp, NebengColor.Gray200, RoundedCornerShape(NebengRadius.Full))
+                        .clickable { onQuickDestinationClick(destination) }
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = NebengColor.Gray600,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = destination,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = NebengColor.Gray800
+                    )
+                }
+            }
         }
     }
 }

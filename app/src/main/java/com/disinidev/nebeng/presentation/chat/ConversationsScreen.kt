@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
@@ -142,24 +141,6 @@ private fun ConversationsHeader(
                 platformStyle = PlatformTextStyle(includeFontPadding = false)
             )
         )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Edit / Compose Note Button
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(NebengColor.Primary50),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.EditNote,
-                contentDescription = "Pesan Baru",
-                tint = NebengColor.Primary900,
-                modifier = Modifier.size(22.dp)
-            )
-        }
     }
 }
 

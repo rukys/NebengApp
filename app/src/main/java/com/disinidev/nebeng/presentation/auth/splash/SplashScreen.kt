@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.disinidev.nebeng.BuildConfig
 import com.disinidev.nebeng.R
 import com.disinidev.nebeng.core.designsystem.NebengColor
 
@@ -76,21 +77,11 @@ fun SplashScreen(
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Tagline
-            Text(
-                text = "Komuter Cerdas Bebas Macet",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Normal,
-                color = Color(0xFFA0A0A0)
-            )
         }
 
         // Footer version info
         Text(
-            text = "Versi 1.0.0 • Uber Base UI",
+            text = "Versi ${BuildConfig.VERSION_NAME}",
             fontSize = 11.sp,
             color = Color(0xFF666666),
             modifier = Modifier

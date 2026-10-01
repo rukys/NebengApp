@@ -314,8 +314,7 @@ fun VehicleManagementScreen(
                     onColorChange = viewModel::onColorChange,
                     onYearChange = viewModel::onYearChange,
                     onTypeChange = viewModel::onTypeChange,
-                    onSave = viewModel::saveVehicle,
-                    onCancel = viewModel::closeAddSheet
+                    onSave = viewModel::saveVehicle
                 )
             }
         }
@@ -472,8 +471,7 @@ private fun AddVehicleSheetContent(
     onColorChange: (String) -> Unit,
     onYearChange: (String) -> Unit,
     onTypeChange: (VehicleType) -> Unit,
-    onSave: () -> Unit,
-    onCancel: () -> Unit
+    onSave: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -484,17 +482,6 @@ private fun AddVehicleSheetContent(
             .padding(horizontal = NebengSpacing.Xl)
             .padding(bottom = NebengSpacing.Xl)
     ) {
-        // Handle indicator
-        Box(
-            modifier = Modifier
-                .width(40.dp)
-                .height(4.dp)
-                .clip(CircleShape)
-                .background(NebengColor.Gray200)
-                .align(Alignment.CenterHorizontally)
-        )
-        Spacer(modifier = Modifier.height(NebengSpacing.Xl))
-
         Text(
             text = "Tambah Kendaraan",
             fontSize = 20.sp,
@@ -588,25 +575,14 @@ private fun AddVehicleSheetContent(
 
         Spacer(modifier = Modifier.height(NebengSpacing.Xl))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(NebengSpacing.Md)
-        ) {
-            NebengButton(
-                text = "Batal",
-                onClick = onCancel,
-                style = NebengButtonStyle.SECONDARY,
-                modifier = Modifier.weight(1f)
-            )
-            NebengButton(
-                text = "Simpan",
-                onClick = onSave,
-                style = NebengButtonStyle.PRIMARY,
-                trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
-                isLoading = state.isSaving,
-                modifier = Modifier.weight(1f)
-            )
-        }
+        NebengButton(
+            text = "Simpan Kendaraan",
+            onClick = onSave,
+            style = NebengButtonStyle.PRIMARY,
+            trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+            isLoading = state.isSaving,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 

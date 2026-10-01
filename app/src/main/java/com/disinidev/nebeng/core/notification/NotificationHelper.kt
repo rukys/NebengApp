@@ -67,6 +67,7 @@ object NotificationHelper {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             if (!actionUrl.isNullOrBlank()) {
                 data = Uri.parse(actionUrl)
+                putExtra("action_url", actionUrl)
             }
         }
         val pendingIntent = PendingIntent.getActivity(

@@ -1,5 +1,7 @@
 package com.disinidev.nebeng.presentation.profile
 
+import com.disinidev.nebeng.BuildConfig
+import com.disinidev.nebeng.core.component.HelpFaqBottomSheet
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -225,7 +227,7 @@ fun ProfileScreen(
     }
 
     if (showFaqSheet) {
-        FaqBottomSheet(onDismiss = { showFaqSheet = false })
+        HelpFaqBottomSheet(onDismiss = { showFaqSheet = false })
     }
 
     // VehicleManagement is now a dedicated screen (see NavDestination.VehicleManagement)
@@ -758,94 +760,7 @@ private fun EmergencyContactItem(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun FaqBottomSheet(onDismiss: () -> Unit) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = NebengColor.Primary0
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 12.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
-                    contentDescription = null,
-                    tint = NebengColor.Primary900,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "Pusat Bantuan & FAQ",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NebengColor.Primary900
-                )
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            FaqItem(
-                question = "Apakah Nebeng benar-benar 100% gratis?",
-                answer = "Ya, Nebeng dibuat untuk gerakan komuter ramah lingkungan tanpa tarif komersial dan tanpa komisi platform."
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            FaqItem(
-                question = "Bagaimana jika pengemudi meminta bayaran?",
-                answer = "Nebeng melarang penarikan ongkos komersial. Jika terjadi pemaksaan, laporkan nomor plat pengemudi melalui menu kontak darurat."
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            FaqItem(
-                question = "Apakah saya bisa memberikan apresiasi tip?",
-                answer = "Secara sukarela setelah perjalanan selesai, Anda dapat memindai QRIS driver sendiri secara mandiri tanpa potongan platform."
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            NebengButton(
-                text = "Tutup",
-                onClick = onDismiss,
-                style = NebengButtonStyle.PRIMARY,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-}
-
-@Composable
-private fun FaqItem(question: String, answer: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(NebengColor.Primary50)
-            .padding(14.dp)
-    ) {
-        Text(
-            text = question,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            color = NebengColor.Primary900
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = answer,
-            fontSize = 12.sp,
-            color = NebengColor.Gray600,
-            lineHeight = 18.sp
-        )
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1334,7 +1249,7 @@ private fun SettingsBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Nebeng App v1.0.0 (Build 14)\nKomunitas Nebeng Komuter Jabodetabek",
+                text = "Nebeng App v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})\nKomunitas Nebeng Komuter Jabodetabek",
                 fontSize = 13.sp,
                 color = NebengColor.Gray600,
                 lineHeight = 18.sp

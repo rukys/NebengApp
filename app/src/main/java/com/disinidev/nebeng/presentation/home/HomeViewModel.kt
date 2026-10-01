@@ -35,6 +35,7 @@ data class HomeUiState(
     val unreadNotificationCount: Int = 0,
     val selectedService: ServiceType = ServiceType.CAR,
     val popularRides: List<Ride> = emptyList(),
+    val popularDestinations: List<String> = listOf("SCBD", "Sudirman", "Kuningan", "Stasiun Manggarai", "Blok M", "Senayan"),
     val totalRidesCount: Int = 0,
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
@@ -57,6 +58,7 @@ class HomeViewModel @Inject constructor(
         syncFcmToken()
         loadPopularRides()
         loadUnreadNotificationCount()
+        fetchCurrentLocation()
     }
 
     fun onServiceSelected(service: ServiceType) {
@@ -88,11 +90,18 @@ class HomeViewModel @Inject constructor(
                 val location = locationClient.getCurrentLocation()
                 if (location != null) {
                     val address = location.addressName ?: "Lokasi Saat Ini"
-                    _uiState.update {
-                        it.copy(
+                    _uiState.update { current ->
+                        val dynamicDestinations = resolveDynamicDestinations(
+                            rides = current.popularRides,
+                            lat = location.latitude,
+                            lng = location.longitude,
+                            locationName = address
+                        )
+                        current.copy(
                             userLocation = address,
                             userLat = location.latitude,
-                            userLng = location.longitude
+                            userLng = location.longitude,
+                            popularDestinations = dynamicDestinations
                         )
                     }
                 }
@@ -130,8 +139,7 @@ class HomeViewModel @Inject constructor(
                         it.copy(
                             userGreeting = firstName,
                             userAvatarInitials = initials,
-                            avatarUrl = profile.avatarUrl,
-                            userLocation = profile.officeAddress ?: it.userLocation
+                            avatarUrl = profile.avatarUrl
                         )
                     }
                 }
@@ -148,9 +156,16 @@ class HomeViewModel @Inject constructor(
 
             rideRepository.getPopularRides()
                 .onSuccess { remoteList ->
-                    _uiState.update {
-                        it.copy(
+                    _uiState.update { current ->
+                        val dynamicDestinations = resolveDynamicDestinations(
+                            rides = remoteList,
+                            lat = current.userLat,
+                            lng = current.userLng,
+                            locationName = current.userLocation
+                        )
+                        current.copy(
                             popularRides = remoteList,
+                            popularDestinations = dynamicDestinations,
                             totalRidesCount = remoteList.size,
                             isLoading = false,
                             isRefreshing = false
@@ -168,6 +183,64 @@ class HomeViewModel @Inject constructor(
                         )
                     }
                 }
+        }
+    }
+
+    private fun resolveDynamicDestinations(
+        rides: List<Ride>,
+        lat: Double,
+        lng: Double,
+        locationName: String
+    ): List<String> {
+        val extractedFromRides = rides
+            .map { it.dropoffAddress.trim() }
+            .filter { it.isNotBlank() }
+            .map { cleanDestinationName(it) }
+            .filter { it.isNotBlank() && !it.equals(locationName, ignoreCase = true) }
+            .distinct()
+
+        val geoHubs = getGeoHubsForLocation(lat, lng, locationName)
+
+        val combined = (extractedFromRides + geoHubs).distinct().take(6)
+        return combined.ifEmpty {
+            listOf("SCBD", "Sudirman", "Kuningan", "Stasiun MRT", "Stasiun KRL")
+        }
+    }
+
+    private fun cleanDestinationName(address: String): String {
+        val keywords = listOf(
+            "SCBD", "Sudirman", "Kuningan", "Senayan", "Blok M",
+            "Thamrin", "Monas", "Manggarai", "Dukuh Atas", "Cawang",
+            "Gatot Subroto", "TB Simatupang", "Cilandak", "Kemang",
+            "Pancoran", "Slipi", "Tomang", "Kelapa Gading", "Sunter"
+        )
+        for (kw in keywords) {
+            if (address.contains(kw, ignoreCase = true)) {
+                return kw
+            }
+        }
+        val firstPart = address.split(",").firstOrNull()?.trim() ?: address
+        return if (firstPart.length > 20) firstPart.take(20).trimEnd() + "..." else firstPart
+    }
+
+    private fun getGeoHubsForLocation(lat: Double, lng: Double, locationName: String): List<String> {
+        val lowerLocation = locationName.lowercase()
+        return when {
+            lowerLocation.contains("depok") || lowerLocation.contains("bogor") || lowerLocation.contains("cibubur") || lat < -6.32 -> {
+                listOf("TB Simatupang", "Cilandak", "Kuningan", "Stasiun UI", "Pancoran", "SCBD")
+            }
+            lowerLocation.contains("tangerang") || lowerLocation.contains("bsd") || lowerLocation.contains("serpong") || lowerLocation.contains("bintaro") || lng < 106.75 -> {
+                listOf("Slipi", "Senayan", "Gading Serpong", "Stasiun Jurangmangu", "Sudirman")
+            }
+            lowerLocation.contains("bekasi") || lowerLocation.contains("cikarang") || lowerLocation.contains("cawang") || lng > 106.89 -> {
+                listOf("MT Haryono", "Cawang", "Gatot Subroto", "Kelapa Gading", "Kuningan")
+            }
+            lowerLocation.contains("jakarta pusat") || lowerLocation.contains("jakarta utara") || (lat > -6.20 && lat < -6.10) -> {
+                listOf("Monas", "Thamrin", "Sudirman", "Kelapa Gading", "Stasiun Gambir")
+            }
+            else -> {
+                listOf("SCBD", "Sudirman", "Kuningan", "Stasiun Manggarai", "Blok M", "Senayan")
+            }
         }
     }
 }

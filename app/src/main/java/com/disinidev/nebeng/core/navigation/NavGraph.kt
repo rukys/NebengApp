@@ -45,7 +45,9 @@ import com.disinidev.nebeng.presentation.routine.RoutineCommuteScreen
 fun NebengNavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier,
-    startDestination: NavDestination = NavDestination.Splash
+    startDestination: NavDestination = NavDestination.Splash,
+    pendingDeepLinkUri: String? = null,
+    onDeepLinkConsumed: () -> Unit = {}
 ) {
     NavHost(
         navController = navController,
@@ -85,6 +87,12 @@ fun NebengNavGraph(
                     navController.navigate(NavDestination.Home) {
                         popUpTo(NavDestination.Splash) { inclusive = true }
                     }
+                    if (!pendingDeepLinkUri.isNullOrBlank()) {
+                        runCatching {
+                            navController.navigate(android.net.Uri.parse(pendingDeepLinkUri))
+                        }
+                        onDeepLinkConsumed()
+                    }
                 },
                 onNavigateToLogin = {
                     navController.navigate(NavDestination.Login) {
@@ -99,7 +107,9 @@ fun NebengNavGraph(
             )
         }
 
-        composable<NavDestination.Onboarding> {
+        composable<NavDestination.Onboarding>(
+            deepLinks = listOf(navDeepLink { uriPattern = "nebeng://onboarding" })
+        ) {
             OnboardingScreen(
                 onNavigateToRegister = {
                     navController.navigate(NavDestination.Register) {
@@ -124,7 +134,8 @@ fun NebengNavGraph(
                 },
                 onNavigateToHome = {
                     navController.navigate(NavDestination.Home) {
-                        popUpTo(navController.graph.id) { inclusive = true }
+                        popUpTo(NavDestination.Login) { inclusive = true }
+                        launchSingleTop = true
                     }
                 }
             )
@@ -149,7 +160,8 @@ fun NebengNavGraph(
                 },
                 onNavigateToHome = {
                     navController.navigate(NavDestination.Home) {
-                        popUpTo(navController.graph.id) { inclusive = true }
+                        popUpTo(NavDestination.Register) { inclusive = true }
+                        launchSingleTop = true
                     }
                 }
             )
@@ -332,7 +344,8 @@ fun NebengNavGraph(
                 },
                 onLogoutSuccess = {
                     navController.navigate(NavDestination.Login) {
-                        popUpTo(0) { inclusive = true }
+                        popUpTo(navController.graph.id) { inclusive = false }
+                        launchSingleTop = true
                     }
                 },
                 onTabSelected = { tab ->
@@ -359,7 +372,8 @@ fun NebengNavGraph(
                 },
                 onLogoutSuccess = {
                     navController.navigate(NavDestination.Login) {
-                        popUpTo(0) { inclusive = true }
+                        popUpTo(navController.graph.id) { inclusive = false }
+                        launchSingleTop = true
                     }
                 }
             )
@@ -582,7 +596,12 @@ fun NebengNavGraph(
             )
         }
 
-        composable<NavDestination.Tip> { backStackEntry ->
+        composable<NavDestination.Tip>(
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "nebeng://trip/{bookingId}/tip" },
+                navDeepLink { uriPattern = "nebeng://tip/{bookingId}" }
+            )
+        ) { backStackEntry ->
             val route = backStackEntry.toRoute<NavDestination.Tip>()
             TipScreen(
                 onSkip = {

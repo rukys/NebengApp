@@ -55,6 +55,10 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(isNotificationEnabled = enabled) }
     }
 
+    fun refreshProfile() {
+        loadUserProfile()
+    }
+
     private fun loadUserProfile() {
         viewModelScope.launch {
             userRepository.getUserProfile()
