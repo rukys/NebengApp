@@ -6,7 +6,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.disinidev.nebeng.MainActivity
@@ -19,37 +18,35 @@ object NotificationHelper {
     const val CHANNEL_SYSTEM = "channel_system"
 
     fun createNotificationChannels(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            val tripChannel = NotificationChannel(
-                CHANNEL_TRIP,
-                "Update Perjalanan & Tebengan",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Notifikasi status penjemputan, live tracking, dan tebengan selesai"
-                enableVibration(true)
-            }
-
-            val chatChannel = NotificationChannel(
-                CHANNEL_CHAT,
-                "Pesan & Chat Driver",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Notifikasi pesan obrolan masuk dari pengemudi atau penumpang"
-                enableVibration(true)
-            }
-
-            val systemChannel = NotificationChannel(
-                CHANNEL_SYSTEM,
-                "Informasi & Sistem Nebeng",
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = "Pengumuman dan informasi akun Nebeng"
-            }
-
-            notificationManager.createNotificationChannels(listOf(tripChannel, chatChannel, systemChannel))
+        val tripChannel = NotificationChannel(
+            CHANNEL_TRIP,
+            "Update Perjalanan & Tebengan",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Notifikasi status penjemputan, live tracking, dan tebengan selesai"
+            enableVibration(true)
         }
+
+        val chatChannel = NotificationChannel(
+            CHANNEL_CHAT,
+            "Pesan & Chat Driver",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Notifikasi pesan obrolan masuk dari pengemudi atau penumpang"
+            enableVibration(true)
+        }
+
+        val systemChannel = NotificationChannel(
+            CHANNEL_SYSTEM,
+            "Informasi & Sistem Nebeng",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Pengumuman dan informasi akun Nebeng"
+        }
+
+        notificationManager.createNotificationChannels(listOf(tripChannel, chatChannel, systemChannel))
     }
 
     fun showNotification(

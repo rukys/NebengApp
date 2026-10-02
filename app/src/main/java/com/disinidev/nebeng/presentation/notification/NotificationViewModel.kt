@@ -1,6 +1,5 @@
-package com.disinidev.nebeng.presentation.notification
+﻿package com.disinidev.nebeng.presentation.notification
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.disinidev.nebeng.domain.model.Notification
@@ -15,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import timber.log.Timber
 
 enum class NotificationFilter(val label: String, val category: NotificationCategory?) {
     ALL("Semua", null),
@@ -110,7 +110,7 @@ class NotificationViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                Log.e("NotificationVM", "Error loading trip activities: ${e.message}")
+                Timber.e("Error loading trip activities: ${e.message}")
             }
 
             notificationRepository.getNotifications()

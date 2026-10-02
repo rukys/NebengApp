@@ -35,12 +35,15 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -56,6 +59,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.disinidev.nebeng.core.component.ActivityTripSkeleton
 import com.disinidev.nebeng.core.component.CancellationReasonBottomSheet
 import com.disinidev.nebeng.core.component.NebengBottomNav
 import com.disinidev.nebeng.core.component.NebengButton
@@ -67,6 +74,7 @@ import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
 import com.disinidev.nebeng.presentation.driver.requests.DriverRequestsBottomSheet
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActivityScreen(
     onTabSelected: (NebengTab) -> Unit,
@@ -76,12 +84,25 @@ fun ActivityScreen(
     viewModel: ActivityViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
     var isRequestsSheetOpen by remember { mutableStateOf(false) }
     var bookingToCancel by remember { mutableStateOf<String?>(null) }
     var showVerifyPinDialog by remember { mutableStateOf(false) }
     var pinInputText by remember { mutableStateOf("") }
     var showCompleteTripDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     LaunchedEffect(state.errorMessage, state.successMessage) {
         state.errorMessage?.let {
@@ -118,84 +139,116 @@ fun ActivityScreen(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = state.isLoading,
+            onRefresh = viewModel::refresh,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 20.dp)
         ) {
-            // Filter Chips Row
-            item {
-                Spacer(modifier = Modifier.height(4.dp))
-                ActivityFilterChips(
-                    selectedFilter = state.selectedFilter,
-                    activeCount = if (state.activeTrip != null) 1 else 0,
-                    completedCount = state.completedTrips.size,
-                    canceledCount = state.canceledTrips.size,
-                    onFilterSelected = viewModel::onFilterSelected
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // Ongoing State: Active Trip Card & Driver Requests
-            if (state.selectedFilter == ActivityFilter.ONGOING) {
-                // Driver Requests Banner
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp)
+            ) {
+                // Filter Chips Row
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(NebengRadius.Lg))
-                            .background(NebengColor.Primary50)
-                            .border(1.dp, NebengColor.Gray200, RoundedCornerShape(NebengRadius.Lg))
-                            .clickable { isRequestsSheetOpen = true }
-                            .padding(14.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(NebengColor.Primary900),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = NebengColor.Primary0,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Permintaan tebengan masuk",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = NebengColor.Primary900
-                                )
-                                Text(
-                                    text = "Tinjau dan tanggapi calon tebengan",
-                                    fontSize = 11.sp,
-                                    color = NebengColor.Gray600
-                                )
-                            }
-                            Text(
-                                text = "Kelola ➔",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = NebengColor.Primary900
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    ActivityFilterChips(
+                        selectedFilter = state.selectedFilter,
+                        activeCount = (if (state.activeTrip != null) 1 else 0) + state.pendingRequestsCount,
+                        completedCount = state.completedTrips.size,
+                        canceledCount = state.canceledTrips.size,
+                        onFilterSelected = viewModel::onFilterSelected
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
+
+                // Ongoing State: Active Trip Card & Driver Requests
+                if (state.selectedFilter == ActivityFilter.ONGOING) {
+                    // Driver Requests Banner
+                    item {
+                        val hasPending = state.pendingRequestsCount > 0
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(NebengRadius.Lg))
+                                .background(if (hasPending) NebengColor.Warning100 else NebengColor.Primary50)
+                                .border(
+                                    1.dp,
+                                    if (hasPending) NebengColor.Warning600 else NebengColor.Gray200,
+                                    RoundedCornerShape(NebengRadius.Lg)
+                                )
+                                .clickable { isRequestsSheetOpen = true }
+                                .padding(14.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(if (hasPending) NebengColor.Warning600 else NebengColor.Primary900),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = NebengColor.Primary0,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Permintaan tebengan masuk",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = NebengColor.Primary900
+                                        )
+                                        if (hasPending) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(NebengRadius.Full))
+                                                    .background(NebengColor.Danger600)
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = "${state.pendingRequestsCount} Baru",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = NebengColor.Primary0
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Text(
+                                        text = if (hasPending) "${state.pendingRequestsCount} calon tebengan menunggu respon Anda" else "Tinjau dan tanggapi calon tebengan",
+                                        fontSize = 11.sp,
+                                        color = NebengColor.Gray600
+                                    )
+                                }
+                                Text(
+                                    text = "Kelola ➔",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (hasPending) NebengColor.Warning600 else NebengColor.Primary900
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(14.dp))
+                    }
 
                 item {
                     val activeTrip = state.activeTrip
-                    if (activeTrip != null) {
+                    if (state.isLoading && activeTrip == null && state.completedTrips.isEmpty()) {
+                        ActivityTripSkeleton()
+                        Spacer(modifier = Modifier.height(24.dp))
+                    } else if (activeTrip != null) {
                         ActiveTripCard(
                             activeTrip = activeTrip,
                             onTrackClick = { onNavigateToLiveTracking(activeTrip.bookingId) },
@@ -271,11 +324,15 @@ fun ActivityScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+        }
     }
 
     if (isRequestsSheetOpen) {
         DriverRequestsBottomSheet(
-            onDismiss = { isRequestsSheetOpen = false }
+            onDismiss = {
+                isRequestsSheetOpen = false
+                viewModel.refresh()
+            }
         )
     }
 
@@ -666,14 +723,22 @@ private fun ActiveTripCard(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (activeTrip.isDriver) {
+            NebengButton(
+                text = "Buka Rute & Navigasi",
+                onClick = onTrackClick,
+                style = NebengButtonStyle.PRIMARY,
+                trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
             if (activeTrip.rawStatus == "confirmed") {
                 NebengButton(
                     text = "Verifikasi PIN Penumpang (Mulai)",
                     onClick = onVerifyPinClick,
                     enabled = !isActionInProgress,
                     isLoading = isActionInProgress,
-                    style = NebengButtonStyle.PRIMARY,
-                    trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
+                    style = NebengButtonStyle.SECONDARY,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -682,7 +747,7 @@ private fun ActiveTripCard(
                     onClick = onCancelClick,
                     enabled = !isCancelling,
                     isLoading = isCancelling,
-                    style = NebengButtonStyle.SECONDARY,
+                    style = NebengButtonStyle.GHOST,
                     modifier = Modifier.fillMaxWidth()
                 )
             } else if (activeTrip.rawStatus == "picked_up") {
@@ -691,7 +756,7 @@ private fun ActiveTripCard(
                     onClick = onCompleteTripClick,
                     enabled = !isActionInProgress,
                     isLoading = isActionInProgress,
-                    style = NebengButtonStyle.PRIMARY,
+                    style = NebengButtonStyle.SECONDARY,
                     trailingIcon = Icons.AutoMirrored.Filled.ArrowForward,
                     modifier = Modifier.fillMaxWidth()
                 )

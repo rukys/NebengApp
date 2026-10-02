@@ -6,6 +6,7 @@ import com.disinidev.nebeng.domain.model.TripLocation
 import com.disinidev.nebeng.domain.model.VehicleType
 import com.disinidev.nebeng.domain.repository.BookingRepository
 import com.disinidev.nebeng.domain.repository.BookingResult
+import com.disinidev.nebeng.domain.repository.UserRepository
 import com.disinidev.nebeng.domain.usecase.ObserveDriverLocationUseCase
 import com.disinidev.nebeng.domain.usecase.UpdateDriverLocationUseCase
 import com.disinidev.nebeng.util.MainDispatcherRule
@@ -35,9 +36,11 @@ class LiveTrackingViewModelTest {
     private val observeDriverLocationUseCase = mockk<ObserveDriverLocationUseCase>()
     private val updateDriverLocationUseCase = mockk<UpdateDriverLocationUseCase>()
     private val locationClient = mockk<LocationClient>()
+    private val userRepository = mockk<UserRepository>()
 
     @Before
     fun setUp() {
+        coEvery { userRepository.getCurrentUserUuid() } returns "user_123"
         coEvery {
             bookingRepository.getBookingById(any())
         } answers {
@@ -67,7 +70,8 @@ class LiveTrackingViewModelTest {
             bookingRepository = bookingRepository,
             observeDriverLocationUseCase = observeDriverLocationUseCase,
             updateDriverLocationUseCase = updateDriverLocationUseCase,
-            locationClient = locationClient
+            locationClient = locationClient,
+            userRepository = userRepository
         )
     }
 

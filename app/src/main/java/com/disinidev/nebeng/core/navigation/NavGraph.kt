@@ -624,12 +624,14 @@ fun NebengNavGraph(
         composable<NavDestination.RoutineCommute> {
             RoutineCommuteScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onSearchRide = { origin, destination, vehicleType ->
+                onSearchRide = { origin, destination, vehicleType, pLat, pLng ->
                     navController.navigate(
                         NavDestination.SearchResults(
                             pickupAddress = origin,
                             dropoffAddress = destination,
-                            vehicleType = vehicleType
+                            vehicleType = vehicleType,
+                            pickupLat = pLat,
+                            pickupLng = pLng
                         )
                     )
                 }

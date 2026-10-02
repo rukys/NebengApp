@@ -1,6 +1,5 @@
-package com.disinidev.nebeng.data.repository
+﻿package com.disinidev.nebeng.data.repository
 
-import android.util.Log
 import com.disinidev.nebeng.domain.model.Notification
 import com.disinidev.nebeng.domain.model.NotificationCategory
 import com.disinidev.nebeng.domain.repository.NotificationRepository
@@ -14,6 +13,7 @@ import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException
+import timber.log.Timber
 
 @Serializable
 private data class NotificationDto(
@@ -73,7 +73,7 @@ class NotificationRepositoryImpl @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e("NotificationRepo", "Error fetching notifications: ${e.message}", e)
+            Timber.e(e, "Error fetching notifications: ${e.message}")
             Result.success(emptyList())
         }
     }
@@ -93,7 +93,7 @@ class NotificationRepositoryImpl @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e("NotificationRepo", "Error getting unread count: ${e.message}", e)
+            Timber.e(e, "Error getting unread count: ${e.message}")
             Result.success(cachedUnreadCount ?: 0)
         }
     }
@@ -112,7 +112,7 @@ class NotificationRepositoryImpl @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e("NotificationRepo", "Error marking notification as read: ${e.message}", e)
+            Timber.e(e, "Error marking notification as read: ${e.message}")
             Result.failure(e)
         }
     }
@@ -133,7 +133,7 @@ class NotificationRepositoryImpl @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e("NotificationRepo", "Error marking all notifications as read: ${e.message}", e)
+            Timber.e(e, "Error marking all notifications as read: ${e.message}")
             Result.failure(e)
         }
     }

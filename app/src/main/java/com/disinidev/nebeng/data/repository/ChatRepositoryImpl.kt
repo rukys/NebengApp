@@ -1,6 +1,5 @@
-package com.disinidev.nebeng.data.repository
+﻿package com.disinidev.nebeng.data.repository
 
-import android.util.Log
 import com.disinidev.nebeng.domain.repository.ChatRepository
 import com.disinidev.nebeng.presentation.chat.ChatMessage
 import com.disinidev.nebeng.presentation.chat.ConversationItem
@@ -32,6 +31,7 @@ import com.disinidev.nebeng.core.notification.NotificationHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import timber.log.Timber
 
 @Serializable
 private data class RemoteChatMessageDto(
@@ -83,6 +83,16 @@ class ChatRepositoryImpl @Inject constructor(
         activeChatBookingId = bookingId
     }
 
+    override suspend fun unsubscribeChat(bookingId: String) {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val channel = activeChannels.remove(bookingId)
+                channel?.unsubscribe()
+                Timber.d("Unsubscribed and removed Realtime channel for booking $bookingId")
+            }
+        }
+    }
+
     private val localMessages = ConcurrentHashMap<String, MutableList<ChatMessage>>()
     private val activeChannels = ConcurrentHashMap<String, RealtimeChannel>()
     private val realtimeMessagesFlow = ConcurrentHashMap<String, MutableStateFlow<List<ChatMessage>>>()
@@ -103,7 +113,7 @@ class ChatRepositoryImpl @Inject constructor(
                 localMessages[bookingId] = messages.toMutableList()
                 messages
             } catch (e: Exception) {
-                Log.e("ChatRepository", "getMessages error: ${e.message}", e)
+                Timber.e(e, "getMessages error: ${e.message}")
                 localMessages[bookingId] ?: emptyList()
             }
         }
@@ -137,7 +147,7 @@ class ChatRepositoryImpl @Inject constructor(
                     }
 
                     channel.subscribe(blockUntilSubscribed = false)
-                    Log.d("ChatRepository", "Subscribed to Realtime channel for booking $bookingId")
+                    Timber.d("Subscribed to Realtime channel for booking $bookingId")
 
                     // 4. Collect realtime inserts and append to state
                     insertFlow.collect { action ->
@@ -180,11 +190,11 @@ class ChatRepositoryImpl @Inject constructor(
                                 )
                             }
                         } catch (e: Exception) {
-                            Log.e("ChatRepository", "Realtime insert parse error: ${e.message}", e)
+                            Timber.e(e, "Realtime insert parse error: ${e.message}")
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e("ChatRepository", "Realtime subscribe error: ${e.message}", e)
+                    Timber.e(e, "Realtime subscribe error: ${e.message}")
                     // Fallback: collect from stateFlow only (no realtime updates)
                 }
             }
@@ -229,7 +239,7 @@ class ChatRepositoryImpl @Inject constructor(
                 )
                 supabaseClient.from("chat_messages").insert(payload)
             } catch (e: Exception) {
-                Log.e("ChatRepository", "sendMessage Supabase error: ${e.message}", e)
+                Timber.e(e, "sendMessage Supabase error: ${e.message}")
             }
 
             newMsg
@@ -298,7 +308,7 @@ class ChatRepositoryImpl @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                Log.e("ChatRepository", "getUserConversations error: ${e.message}", e)
+                Timber.e(e, "getUserConversations error: ${e.message}")
             }
             emptyList()
         }
@@ -310,7 +320,7 @@ class ChatRepositoryImpl @Inject constructor(
             try {
                 supabaseClient.realtime.removeChannel(channel)
             } catch (e: Exception) {
-                Log.w("ChatRepository", "unsubscribe error: ${e.message}")
+                Timber.w("unsubscribe error: ${e.message}")
             }
         }
     }

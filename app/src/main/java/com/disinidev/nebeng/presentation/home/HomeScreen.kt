@@ -35,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.NotificationsNone
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -71,6 +72,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
 import com.disinidev.nebeng.core.component.LoadingShimmer
+import com.disinidev.nebeng.core.component.RideCardSkeleton
 import com.disinidev.nebeng.core.component.NebengBottomNav
 import com.disinidev.nebeng.core.component.NebengTab
 import com.disinidev.nebeng.core.component.RideCard
@@ -104,6 +106,7 @@ fun HomeScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.loadUnreadNotificationCount()
+                viewModel.loadPendingDriverRequests()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -169,6 +172,77 @@ fun HomeScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Inbound Driver Requests Alert Banner
+                if (state.pendingDriverRequestsCount > 0) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(NebengRadius.Md))
+                                .background(NebengColor.Warning100)
+                                .border(1.dp, NebengColor.Warning600, RoundedCornerShape(NebengRadius.Md))
+                                .clickable { onTabSelected(NebengTab.AKTIVITAS) }
+                                .padding(14.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(NebengColor.Warning600),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = NebengColor.Primary0,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Ada Calon Penumpang!",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = NebengColor.Primary900
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(NebengRadius.Full))
+                                                .background(NebengColor.Danger600)
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "${state.pendingDriverRequestsCount} Baru",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = NebengColor.Primary0
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = "${state.pendingDriverRequestsCount} calon tebengan menunggu konfirmasi Anda",
+                                        fontSize = 11.sp,
+                                        color = NebengColor.Gray600
+                                    )
+                                }
+                                Text(
+                                    text = "Tinjau ➔",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NebengColor.Warning600
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // 1. Search Card
                 item {
                     val vehicleTypeParam = when (state.selectedService) {
@@ -250,7 +324,7 @@ fun HomeScreen(
                 // 5. Popular Rides List
                 if (state.isLoading && !state.isRefreshing) {
                     items(3) {
-                        LoadingShimmer(height = 160.dp, cornerRadius = NebengRadius.Lg)
+                        RideCardSkeleton()
                     }
                 } else if (state.popularRides.isEmpty()) {
                     item {

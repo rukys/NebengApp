@@ -12,6 +12,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -241,11 +243,11 @@ fun HelpFaqBottomSheet(
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                androidx.compose.foundation.text.BasicTextField(
+                BasicTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     singleLine = true,
-                    textStyle = androidx.compose.ui.text.TextStyle(
+                    textStyle = TextStyle(
                         fontSize = 13.sp,
                         color = NebengColor.Primary900
                     ),

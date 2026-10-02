@@ -176,18 +176,21 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun updateUserProfile(
         fullName: String,
         officeAddress: String,
-        bio: String
+        bio: String,
+        phoneNumber: String?
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val fbUid = firebaseAuth.currentUser?.uid
             if (fbUid != null) {
-                supabaseClient.postgrest["users"].update(
-                    mapOf(
-                        "full_name" to fullName,
-                        "office_address" to officeAddress,
-                        "bio" to bio
-                    )
-                ) {
+                val payload = mutableMapOf<String, Any>(
+                    "full_name" to fullName,
+                    "office_address" to officeAddress,
+                    "bio" to bio
+                )
+                if (!phoneNumber.isNullOrBlank()) {
+                    payload["phone_number"] = phoneNumber
+                }
+                supabaseClient.postgrest["users"].update(payload) {
                     filter {
                         eq("firebase_uid", fbUid)
                     }

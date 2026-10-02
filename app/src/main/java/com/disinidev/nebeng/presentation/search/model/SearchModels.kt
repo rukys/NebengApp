@@ -68,5 +68,7 @@ data class RideItemUi(
     val facilities: List<String>,
     val driverRating: Double = 4.9,
     val totalTrips: Int = 120,
-    val isOfficeVerified: Boolean = true
+    val isOfficeVerified: Boolean = true,
+    val pickupAddress: String = "",
+    val dropoffAddress: String = ""
 )

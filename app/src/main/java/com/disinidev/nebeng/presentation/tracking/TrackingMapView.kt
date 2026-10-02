@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -50,6 +51,7 @@ fun TrackingMapView(
     recenterTrigger: Int = 0
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current.density
     val lifecycleOwner = LocalLifecycleOwner.current
     var isMapReady by remember { mutableStateOf(false) }
     var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
@@ -177,7 +179,6 @@ fun TrackingMapView(
                     val latDiff = Math.abs(dLoc.latitude - pLoc.latitude)
                     val lngDiff = Math.abs(dLoc.longitude - pLoc.longitude)
 
-                    val density = context.resources.displayMetrics.density
                     val padTop = (90 * density).toInt()
                     val padBottom = (250 * density).toInt()
                     val padSide = (60 * density).toInt()

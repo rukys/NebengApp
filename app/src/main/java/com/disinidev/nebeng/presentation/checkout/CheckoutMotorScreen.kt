@@ -112,7 +112,12 @@ fun CheckoutMotorScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
-            // 1. Driver & Motor Card
+            // 1. Detail Rute & Status Komunitas Gratis
+            RideDetailSummaryCard(ride = ride)
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 2. Driver & Motor Card
             DriverVehicleCard(
                 driverName = ride?.driverName ?: if (state.isLoading) "Memuat pengemudi..." else "Pengemudi",
                 vehicleInfo = ride?.vehicleModel ?: if (state.isLoading) "Memuat kendaraan..." else "-",
@@ -122,7 +127,7 @@ fun CheckoutMotorScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 2. Perlengkapan Helm & Jas Hujan Card
+            // 3. Perlengkapan Helm & Jas Hujan Card
             MotorEquipmentCard(
                 selectedOption = state.helmetOption,
                 onOptionSelected = viewModel::selectHelmetOption

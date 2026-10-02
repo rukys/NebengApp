@@ -10,6 +10,7 @@ import com.disinidev.nebeng.domain.model.User
 import com.disinidev.nebeng.domain.model.UserRole
 import com.disinidev.nebeng.domain.model.VehicleInfo
 import com.disinidev.nebeng.domain.model.VehicleType
+import com.disinidev.nebeng.domain.repository.BookingRepository
 import com.disinidev.nebeng.domain.repository.NotificationRepository
 import com.disinidev.nebeng.domain.repository.RideRepository
 import com.disinidev.nebeng.domain.repository.UserRepository
@@ -37,6 +38,7 @@ data class HomeUiState(
     val popularRides: List<Ride> = emptyList(),
     val popularDestinations: List<String> = listOf("SCBD", "Sudirman", "Kuningan", "Stasiun Manggarai", "Blok M", "Senayan"),
     val totalRidesCount: Int = 0,
+    val pendingDriverRequestsCount: Int = 0,
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null
@@ -47,6 +49,7 @@ class HomeViewModel @Inject constructor(
     private val rideRepository: RideRepository,
     private val userRepository: UserRepository,
     private val locationClient: LocationClient,
+    private val bookingRepository: BookingRepository,
     private val notificationRepository: NotificationRepository? = null
 ) : ViewModel() {
 
@@ -58,6 +61,7 @@ class HomeViewModel @Inject constructor(
         syncFcmToken()
         loadPopularRides()
         loadUnreadNotificationCount()
+        loadPendingDriverRequests()
         fetchCurrentLocation()
     }
 
@@ -69,6 +73,21 @@ class HomeViewModel @Inject constructor(
         fetchCurrentLocation()
         loadPopularRides(isRefresh = true)
         loadUnreadNotificationCount()
+        loadPendingDriverRequests()
+    }
+
+    fun loadPendingDriverRequests() {
+        viewModelScope.launch {
+            try {
+                val userUuid = userRepository.getCurrentUserUuid()
+                val count = bookingRepository.getPendingRequests(userUuid).getOrNull()?.size ?: 0
+                _uiState.update { it.copy(pendingDriverRequestsCount = count) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Keep current state
+            }
+        }
     }
 
     fun loadUnreadNotificationCount() {

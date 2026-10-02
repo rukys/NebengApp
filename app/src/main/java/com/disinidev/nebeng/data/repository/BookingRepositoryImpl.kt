@@ -1,6 +1,5 @@
 package com.disinidev.nebeng.data.repository
 
-import android.util.Log
 import com.disinidev.nebeng.domain.repository.BookingActivityItem
 import com.disinidev.nebeng.domain.repository.BookingRepository
 import com.disinidev.nebeng.domain.repository.BookingResult
@@ -20,11 +19,13 @@ import kotlinx.serialization.json.put
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.random.Random
+import timber.log.Timber
 
 @Serializable
 private data class RemotePendingBookingDto(
@@ -85,16 +86,22 @@ private data class RemoteBookingDetailDto(
 
 @Serializable
 private data class RemoteDetailRideDto(
+    val driver_id: String? = null,
     val vehicle_model: String? = null,
     val vehicle_plate: String? = null,
     val vehicle_type: String? = null,
     val pickup_address: String? = null,
     val dropoff_address: String? = null,
+    val pickup_latitude: Double? = null,
+    val pickup_longitude: Double? = null,
+    val dropoff_latitude: Double? = null,
+    val dropoff_longitude: Double? = null,
     val users: RemoteDetailUserDto? = null
 )
 
 @Serializable
 private data class RemoteDetailUserDto(
+    val id: String? = null,
     val full_name: String? = null
 )
 
@@ -134,7 +141,7 @@ class BookingRepositoryImpl @Inject constructor(
             val dbSeatPosition = mapSeatPositionToDb(seatPosition)
             var targetRideId = rideId
             var bookingId: String? = null
-            var generatedPin = String.format("%03d %03d", Random.nextInt(100, 999), Random.nextInt(100, 999))
+            var generatedPin = String.format(Locale.US, "%03d %03d", Random.nextInt(100, 999), Random.nextInt(100, 999))
 
             // 1. If rideId is a mock string (e.g. "ride_1"), ensure a real ride row exists in Supabase
             if (!runCatching { UUID.fromString(targetRideId) }.isSuccess) {
@@ -154,11 +161,11 @@ class BookingRepositoryImpl @Inject constructor(
                 ).decodeAs<String>()
                 bookingId = result
             } catch (e: Exception) {
-                Log.e("BookingRepository", "RPC book_seat failed: ${e.message}", e)
+                Timber.e(e, "RPC book_seat failed: ${e.message}")
                 // Fallback to direct row insert if RPC encounters concurrency or policy restrictions
                 try {
                     val fallbackBookingId = UUID.randomUUID().toString()
-                    val pin = String.format("%06d", Random.nextInt(100000, 999999))
+                    val pin = String.format(Locale.US, "%06d", Random.nextInt(100000, 999999))
                     val insertPayload = mapOf(
                         "id" to fallbackBookingId,
                         "ride_id" to targetRideId,
@@ -171,7 +178,7 @@ class BookingRepositoryImpl @Inject constructor(
                     bookingId = fallbackBookingId
                     generatedPin = "${pin.take(3)} ${pin.takeLast(3)}"
                 } catch (e2: Exception) {
-                    Log.e("BookingRepository", "Direct insert fallback failed: ${e2.message}", e2)
+                    Timber.e(e2, "Direct insert fallback failed: ${e2.message}")
                 }
             }
 
@@ -180,8 +187,8 @@ class BookingRepositoryImpl @Inject constructor(
             val rideInfo = try {
                 supabaseClient.postgrest.from("rides").select(
                     columns = Columns.raw(
-                        "vehicle_model, vehicle_plate, vehicle_type, pickup_address, dropoff_address, " +
-                        "users!rides_driver_id_fkey(full_name)"
+                        "driver_id, vehicle_model, vehicle_plate, vehicle_type, pickup_address, dropoff_address, pickup_latitude, pickup_longitude, dropoff_latitude, dropoff_longitude, " +
+                        "users!rides_driver_id_fkey(id, full_name)"
                     )
                 ) {
                     filter {
@@ -193,6 +200,7 @@ class BookingRepositoryImpl @Inject constructor(
             }
 
             val isMotor = rideInfo?.vehicle_type == "motorcycle" || seatPosition == "pillion"
+            val driverId = rideInfo?.driver_id ?: rideInfo?.users?.id ?: ""
             val driverName = rideInfo?.users?.full_name ?: if (isMotor) "Pengemudi Motor" else "Pengemudi Mobil"
             val vehicleModel = rideInfo?.vehicle_model ?: if (isMotor) "Motor" else "Mobil"
             val vehiclePlate = rideInfo?.vehicle_plate ?: "-"
@@ -200,13 +208,18 @@ class BookingRepositoryImpl @Inject constructor(
             val result = BookingResult(
                 bookingId = finalBookingId,
                 pickupPin = generatedPin,
+                driverId = driverId,
                 driverName = driverName,
                 vehicleModel = vehicleModel,
                 vehiclePlate = vehiclePlate,
                 seatPosition = seatPosition,
                 pickupAddress = rideInfo?.pickup_address ?: "",
                 dropoffAddress = rideInfo?.dropoff_address ?: "",
-                vehicleType = rideInfo?.vehicle_type ?: if (isMotor) "motorcycle" else "car"
+                vehicleType = rideInfo?.vehicle_type ?: if (isMotor) "motorcycle" else "car",
+                pickupLat = rideInfo?.pickup_latitude,
+                pickupLng = rideInfo?.pickup_longitude,
+                dropoffLat = rideInfo?.dropoff_latitude,
+                dropoffLng = rideInfo?.dropoff_longitude
             )
 
             localBookings[finalBookingId] = result
@@ -224,8 +237,8 @@ class BookingRepositoryImpl @Inject constructor(
                     val remote = supabaseClient.postgrest.from("bookings").select(
                         columns = Columns.raw(
                             "id, pickup_pin, seat_position, status, " +
-                            "rides(vehicle_model, vehicle_plate, vehicle_type, pickup_address, dropoff_address, " +
-                            "users!rides_driver_id_fkey(full_name))"
+                            "rides(driver_id, vehicle_model, vehicle_plate, vehicle_type, pickup_address, dropoff_address, pickup_latitude, pickup_longitude, dropoff_latitude, dropoff_longitude, " +
+                            "users!rides_driver_id_fkey(id, full_name))"
                         )
                     ) {
                         filter {
@@ -237,6 +250,7 @@ class BookingRepositoryImpl @Inject constructor(
                         val result = BookingResult(
                             bookingId = remote.id,
                             pickupPin = remote.pickup_pin,
+                            driverId = remote.rides?.driver_id ?: remote.rides?.users?.id ?: "",
                             driverName = remote.rides?.users?.full_name ?: "",
                             vehicleModel = remote.rides?.vehicle_model ?: "",
                             vehiclePlate = remote.rides?.vehicle_plate ?: "",
@@ -244,13 +258,17 @@ class BookingRepositoryImpl @Inject constructor(
                             pickupAddress = remote.rides?.pickup_address ?: "",
                             dropoffAddress = remote.rides?.dropoff_address ?: "",
                             vehicleType = remote.rides?.vehicle_type ?: "car",
-                            status = remote.status
+                            status = remote.status,
+                            pickupLat = remote.rides?.pickup_latitude,
+                            pickupLng = remote.rides?.pickup_longitude,
+                            dropoffLat = remote.rides?.dropoff_latitude,
+                            dropoffLng = remote.rides?.dropoff_longitude
                         )
                         localBookings[bookingId] = result
                         return@runCatching result
                     }
                 } catch (e: Exception) {
-                    Log.e("BookingRepository", "getBookingById Supabase error: ${e.message}", e)
+                    Timber.e(e, "getBookingById Supabase error: ${e.message}")
                 }
             }
 
@@ -275,7 +293,7 @@ class BookingRepositoryImpl @Inject constructor(
                 try {
                     val updateData = mutableMapOf<String, Any>(
                         "driver_rating" to rating,
-                        "status" to "done"
+                        "status" to "completed"
                     )
                     review?.takeIf { it.isNotBlank() }?.let { updateData["passenger_review"] = it }
                     supabaseClient.postgrest.from("bookings").update(updateData) {
@@ -283,43 +301,52 @@ class BookingRepositoryImpl @Inject constructor(
                             eq("id", bookingId)
                         }
                     }
+                    localBookings[bookingId]?.let {
+                        localBookings[bookingId] = it.copy(status = "completed")
+                    }
 
                     // Also update driver rating in users table if found
                     try {
                         val bookingDetails = getBookingById(bookingId).getOrNull()
-                        val driverName = bookingDetails?.driverName
-                        if (!driverName.isNullOrBlank()) {
-                            val drivers = supabaseClient.postgrest["users"].select {
-                                filter {
-                                    eq("full_name", driverName)
+                        val targetDriverId = bookingDetails?.driverId
+                        if (!targetDriverId.isNullOrBlank()) {
+                            try {
+                                supabaseClient.postgrest["users"].update(
+                                    mapOf("average_rating" to rating.toDouble())
+                                ) {
+                                    filter { eq("id", targetDriverId) }
                                 }
-                                limit(1)
-                            }.decodeList<RemoteBookingUserDto>()
-
-                            val driver = drivers.firstOrNull()
-                            if (driver != null) {
+                            } catch (_: Exception) {
                                 try {
+                                    supabaseClient.postgrest["users"].update(
+                                        mapOf("rating" to rating.toDouble())
+                                    ) {
+                                        filter { eq("id", targetDriverId) }
+                                    }
+                                } catch (_: Exception) {}
+                            }
+                        } else {
+                            val driverName = bookingDetails?.driverName
+                            if (!driverName.isNullOrBlank()) {
+                                val drivers = supabaseClient.postgrest["users"].select {
+                                    filter { eq("full_name", driverName) }
+                                    limit(1)
+                                }.decodeList<RemoteBookingUserDto>()
+                                val driver = drivers.firstOrNull()
+                                if (driver != null) {
                                     supabaseClient.postgrest["users"].update(
                                         mapOf("average_rating" to rating.toDouble())
                                     ) {
                                         filter { eq("id", driver.id) }
                                     }
-                                } catch (_: Exception) {
-                                    try {
-                                        supabaseClient.postgrest["users"].update(
-                                            mapOf("rating" to rating.toDouble())
-                                        ) {
-                                            filter { eq("id", driver.id) }
-                                        }
-                                    } catch (_: Exception) {}
                                 }
                             }
                         }
                     } catch (e: Exception) {
-                        Log.e("BookingRepository", "Error updating driver profile rating: ${e.message}", e)
+                        Timber.e(e, "Error updating driver profile rating: ${e.message}")
                     }
                 } catch (e: Exception) {
-                    Log.e("BookingRepository", "rateTrip Supabase error: ${e.message}", e)
+                    Timber.e(e, "rateTrip Supabase error: ${e.message}")
                 }
             }
             Unit
@@ -350,7 +377,7 @@ class BookingRepositoryImpl @Inject constructor(
 
                 return@runCatching list.map { it.toDriverBookingRequest() }
             } catch (e: Exception) {
-                Log.e("BookingRepository", "getPendingRequests Supabase error: ${e.message}", e)
+                Timber.e(e, "getPendingRequests Supabase error: ${e.message}")
                 localRequests.values.filter { it.status == "pending" }.toList()
             }
         }
@@ -372,7 +399,7 @@ class BookingRepositoryImpl @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e("BookingRepository", "respondBookingRequest Supabase error: ${e.message}", e)
+                    Timber.e(e, "respondBookingRequest Supabase error: ${e.message}")
                 }
             }
             Unit
@@ -400,7 +427,7 @@ class BookingRepositoryImpl @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e("BookingRepository", "cancelBooking Supabase error: ${e.message}", e)
+                    Timber.e(e, "cancelBooking Supabase error: ${e.message}")
                     // Fallback to updating status only if cancellation_reason column is not in schema
                     try {
                         supabaseClient.postgrest.from("bookings").update(
@@ -411,7 +438,7 @@ class BookingRepositoryImpl @Inject constructor(
                             }
                         }
                     } catch (fallbackEx: Exception) {
-                        Log.e("BookingRepository", "cancelBooking fallback error: ${fallbackEx.message}", fallbackEx)
+                        Timber.e(fallbackEx, "cancelBooking fallback error: ${fallbackEx.message}")
                     }
                 }
             }
@@ -637,7 +664,7 @@ class BookingRepositoryImpl @Inject constructor(
             supabaseClient.postgrest.from("rides").upsert(ridePayload) { onConflict = "id" }
             return deterministicUuid
         } catch (e: Exception) {
-            Log.e("BookingRepository", "ensureDemoRideInSupabase error: ${e.message}", e)
+            Timber.e(e, "ensureDemoRideInSupabase error: ${e.message}")
             return deterministicUuid
         }
     }

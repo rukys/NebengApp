@@ -71,10 +71,13 @@ class VehicleManagementViewModel @Inject constructor(
 
     fun saveVehicle() {
         val state = _uiState.value
+        val cleanPlate = state.formPlate.trim().uppercase()
+        val platePattern = Regex("^[A-Z]{1,2}\\s?[0-9]{1,4}\\s?[A-Z]{1,3}$")
         when {
             state.formBrand.isBlank() -> { _uiState.update { it.copy(formError = "Merek kendaraan wajib diisi") }; return }
             state.formModel.isBlank() -> { _uiState.update { it.copy(formError = "Model kendaraan wajib diisi") }; return }
-            state.formPlate.isBlank() -> { _uiState.update { it.copy(formError = "Nomor polisi wajib diisi") }; return }
+            cleanPlate.isBlank() -> { _uiState.update { it.copy(formError = "Nomor polisi wajib diisi") }; return }
+            !cleanPlate.matches(platePattern) -> { _uiState.update { it.copy(formError = "Format nomor polisi tidak valid (contoh: B 1234 ABC)") }; return }
         }
 
         viewModelScope.launch {

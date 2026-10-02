@@ -1,11 +1,17 @@
 package com.disinidev.nebeng.core.auth
 
 import android.content.Context
+import android.content.res.Resources
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
+import com.disinidev.nebeng.R
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import timber.log.Timber
 
 object GoogleSignInHelper {
     const val DEFAULT_WEB_CLIENT_ID = "192893427499-m1qk75hnnkoplvpa5ve0cgmg6l3b7oet.apps.googleusercontent.com"
@@ -13,9 +19,8 @@ object GoogleSignInHelper {
     suspend fun getGoogleIdToken(context: Context): String? {
         val credentialManager = CredentialManager.create(context)
         val serverClientId = try {
-            val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-            if (resId != 0) context.getString(resId) else DEFAULT_WEB_CLIENT_ID
-        } catch (_: Exception) {
+            context.getString(R.string.default_web_client_id)
+        } catch (_: Resources.NotFoundException) {
             DEFAULT_WEB_CLIENT_ID
         }
 
@@ -29,16 +34,31 @@ object GoogleSignInHelper {
             .addCredentialOption(googleIdOption)
             .build()
 
-        val result = credentialManager.getCredential(
-            request = request,
-            context = context
-        )
-
-        val credential = result.credential
-        if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-            val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
-            return googleIdTokenCredential.idToken
+        return try {
+            val result = credentialManager.getCredential(
+                request = request,
+                context = context
+            )
+            val credential = result.credential
+            if (credential is CustomCredential &&
+                credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+            ) {
+                GoogleIdTokenCredential.createFrom(credential.data).idToken
+            } else {
+                null
+            }
+        } catch (e: NoCredentialException) {
+            // No saved Google accounts on device — caller should show manual login
+            Timber.d("GoogleSignIn: no credential available")
+            null
+        } catch (e: GetCredentialCancellationException) {
+            // User dismissed the credential picker
+            Timber.d("GoogleSignIn: user cancelled credential picker")
+            null
+        } catch (e: GetCredentialException) {
+            Timber.e(e, "GoogleSignIn: getCredential failed")
+            null
         }
-        return null
     }
 }
+

@@ -29,18 +29,34 @@ class ConversationsViewModel @Inject constructor(
         loadConversations()
     }
 
-    fun loadConversations() {
+    fun refresh() {
+        loadConversations(isRefresh = true)
+    }
+
+    fun loadConversations(isRefresh: Boolean = false) {
         viewModelScope.launch {
+            if (isRefresh) {
+                _uiState.update { it.copy(isRefreshing = true) }
+            } else {
+                _uiState.update { it.copy(isLoading = true) }
+            }
             val userUuid = userRepository.getCurrentUserUuid()
             val result = chatRepository.getUserConversations(userUuid)
-            result.onSuccess { list ->
-                allConversations = list
-                _uiState.update { state ->
-                    state.copy(
-                        conversations = filterConversations(state.searchQuery, state.selectedFilter)
-                    )
+            result.fold(
+                onSuccess = { list ->
+                    allConversations = list
+                    _uiState.update { state ->
+                        state.copy(
+                            conversations = filterConversations(state.searchQuery, state.selectedFilter),
+                            isRefreshing = false,
+                            isLoading = false
+                        )
+                    }
+                },
+                onFailure = {
+                    _uiState.update { it.copy(isRefreshing = false, isLoading = false) }
                 }
-            }
+            )
         }
     }
 

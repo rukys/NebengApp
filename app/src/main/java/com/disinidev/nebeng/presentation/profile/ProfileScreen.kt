@@ -81,6 +81,7 @@ import com.disinidev.nebeng.core.component.NebengButton
 import com.disinidev.nebeng.core.component.NebengButtonStyle
 import com.disinidev.nebeng.core.component.NebengTab
 import com.disinidev.nebeng.core.designsystem.NebengColor
+import androidx.compose.ui.platform.LocalLocale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -515,7 +516,7 @@ private fun StatsCard(
                 )
                 Spacer(modifier = Modifier.width(3.dp))
                 Text(
-                    text = String.format("%.1f", rating),
+                    text = String.format(LocalLocale.current.platformLocale, "%.1f", rating),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = NebengColor.Primary900
@@ -857,7 +858,7 @@ private fun VehicleBottomSheet(
                         text = "Daftarkan mobil atau motor Anda untuk mulai memberi tebengan.",
                         fontSize = 13.sp,
                         color = NebengColor.Gray600,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        textAlign = TextAlign.Center
                     )
                 }
             } else {

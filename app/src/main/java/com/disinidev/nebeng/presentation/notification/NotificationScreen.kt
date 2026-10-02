@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.disinidev.nebeng.core.component.NotificationCardSkeleton
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
 import com.disinidev.nebeng.domain.model.Notification
@@ -104,8 +105,12 @@ fun NotificationScreen(
                     )
                 }
 
-                // 2. Notifications List or Empty State
-                if (state.notifications.isEmpty()) {
+                // 2. Notifications List, Shimmer Skeletons, or Empty State
+                if (state.isLoading && !state.isRefreshing && state.notifications.isEmpty()) {
+                    items(5) {
+                        NotificationCardSkeleton()
+                    }
+                } else if (state.notifications.isEmpty()) {
                     item {
                         EmptyNotificationView()
                     }

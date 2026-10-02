@@ -55,7 +55,32 @@ import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
 import com.disinidev.nebeng.core.designsystem.NebengSpacing
 
+import android.app.DownloadManager
+import android.content.Context
+import android.net.Uri
+import android.os.Environment
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.Download
+
 private val TIP_PRESETS = listOf(5_000, 10_000, 15_000, 20_000, 25_000, 50_000)
+
+private fun downloadQrisImage(context: Context, url: String) {
+    try {
+        val request = DownloadManager.Request(Uri.parse(url))
+            .setTitle("QRIS Driver Nebeng")
+            .setDescription("Mengunduh gambar QRIS driver untuk pembayaran")
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            .setDestinationInExternalPublicDir(Environment.DIRECTORY_PICTURES, "Nebeng_QRIS_${System.currentTimeMillis()}.jpg")
+            .setAllowedOverMetered(true)
+            .setAllowedOverRoaming(true)
+        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        dm.enqueue(request)
+        Toast.makeText(context, "QRIS sedang diunduh ke Galeri/Foto", Toast.LENGTH_SHORT).show()
+    } catch (e: Exception) {
+        Toast.makeText(context, "Gagal mengunduh QRIS: ${e.message}", Toast.LENGTH_SHORT).show()
+    }
+}
 
 @Composable
 fun TipScreen(
@@ -65,6 +90,7 @@ fun TipScreen(
     viewModel: TipViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -211,6 +237,36 @@ fun TipScreen(
                                     contentDescription = "QRIS Driver",
                                     contentScale = ContentScale.Fit,
                                     modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(NebengRadius.Md))
+                                    .background(NebengColor.Primary900)
+                                    .clickable {
+                                        val url = state.driverQrisUrl
+                                        if (!url.isNullOrBlank()) {
+                                            downloadQrisImage(context, url)
+                                        } else {
+                                            android.widget.Toast.makeText(context, "URL QRIS tidak tersedia", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Download,
+                                    contentDescription = "Download QRIS",
+                                    tint = NebengColor.Primary0,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Simpan Gambar QRIS ke Galeri",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NebengColor.Primary0
                                 )
                             }
                         }

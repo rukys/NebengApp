@@ -21,8 +21,17 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETED, completed).apply()
     }
 
+    override fun isNotificationEnabled(): Boolean {
+        return prefs.getBoolean(KEY_NOTIFICATION_ENABLED, true)
+    }
+
+    override fun setNotificationEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NOTIFICATION_ENABLED, enabled).apply()
+    }
+
     companion object {
         private const val PREFS_NAME = "nebeng_user_prefs"
         private const val KEY_ONBOARDING_COMPLETED = "key_onboarding_completed"
+        private const val KEY_NOTIFICATION_ENABLED = "key_notification_enabled"
     }
 }

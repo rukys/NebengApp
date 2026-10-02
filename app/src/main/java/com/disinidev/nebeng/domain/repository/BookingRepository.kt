@@ -3,6 +3,7 @@ package com.disinidev.nebeng.domain.repository
 data class BookingResult(
     val bookingId: String,
     val pickupPin: String,
+    val driverId: String = "",
     val driverName: String = "",
     val vehicleModel: String = "",
     val vehiclePlate: String = "",
@@ -10,7 +11,11 @@ data class BookingResult(
     val pickupAddress: String = "",
     val dropoffAddress: String = "",
     val vehicleType: String = "car",
-    val status: String = "confirmed"
+    val status: String = "confirmed",
+    val pickupLat: Double? = null,
+    val pickupLng: Double? = null,
+    val dropoffLat: Double? = null,
+    val dropoffLng: Double? = null
 )
 
 data class DriverBookingRequest(

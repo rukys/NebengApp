@@ -52,6 +52,7 @@ class ActivityViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             try {
                 val userUuid = userRepository.getCurrentUserUuid()
+                val pendingRequestsCount = bookingRepository.getPendingRequests(userUuid).getOrNull()?.size ?: 0
                 bookingRepository.getUserActivities(userUuid)
                     .onSuccess { activities ->
                         val activeTripModel = activities.activeTrip?.let { item ->
@@ -105,6 +106,7 @@ class ActivityViewModel @Inject constructor(
                                 activeTrip = activeTripModel,
                                 completedTrips = completedItems,
                                 canceledTrips = cancelledItems,
+                                pendingRequestsCount = pendingRequestsCount,
                                 isLoading = false
                             )
                         }

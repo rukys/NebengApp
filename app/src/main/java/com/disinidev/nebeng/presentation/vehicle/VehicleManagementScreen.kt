@@ -59,12 +59,14 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.disinidev.nebeng.core.component.LoadingShimmer
+import com.disinidev.nebeng.core.component.VehicleCardSkeleton
 import com.disinidev.nebeng.core.component.NebengButton
 import com.disinidev.nebeng.core.component.NebengButtonStyle
 import com.disinidev.nebeng.core.component.NebengTextField
@@ -147,12 +149,7 @@ fun VehicleManagementScreen(
                     ) {
                         repeat(3) {
                             Spacer(modifier = Modifier.height(NebengSpacing.Lg))
-                            LoadingShimmer(
-                                height = 80.dp,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(NebengRadius.Lg))
-                            )
+                            VehicleCardSkeleton()
                         }
                     }
                 }
@@ -191,7 +188,7 @@ fun VehicleManagementScreen(
                             text = "Tambahkan kendaraan kamu untuk mulai menawarkan tebengan.",
                             fontSize = 13.sp,
                             color = NebengColor.Gray600,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(NebengSpacing.Xl))
                         NebengButton(
@@ -589,7 +586,7 @@ private fun AddVehicleSheetContent(
 @Composable
 private fun VehicleTypeChip(
     label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     isSelected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier

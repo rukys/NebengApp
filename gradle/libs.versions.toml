@@ -30,6 +30,7 @@ mockk = "1.14.0"
 turbine = "1.2.0"
 credentials = "1.3.0"
 googleid = "1.1.1"
+timber = "5.0.1"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
@@ -106,6 +107,9 @@ androidx-test-runner = { module = "androidx.test:runner", version.ref = "android
 androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "credentials" }
 androidx-credentials-play-services-auth = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
 googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
+
+# Logging
+timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }

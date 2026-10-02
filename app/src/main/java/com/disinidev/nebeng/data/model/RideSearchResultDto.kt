@@ -86,7 +86,9 @@ data class RideSearchResultDto(
             facilities = facilitiesList,
             driverRating = driverRating,
             totalTrips = driverTotalTrips,
-            isOfficeVerified = true
+            isOfficeVerified = true,
+            pickupAddress = pickupAddress,
+            dropoffAddress = dropoffAddress
         )
     }
 }

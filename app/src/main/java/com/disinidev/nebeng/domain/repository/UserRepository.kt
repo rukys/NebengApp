@@ -29,7 +29,8 @@ interface UserRepository {
     suspend fun updateUserProfile(
         fullName: String,
         officeAddress: String,
-        bio: String
+        bio: String,
+        phoneNumber: String? = null
     ): Result<Unit>
     suspend fun setupUserProfile(
         fullName: String,

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -30,7 +31,10 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,12 +48,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.disinidev.nebeng.core.component.ConversationItemSkeleton
 import com.disinidev.nebeng.core.component.NebengBottomNav
 import com.disinidev.nebeng.core.component.NebengTab
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversationsScreen(
     modifier: Modifier = Modifier,
@@ -58,6 +67,19 @@ fun ConversationsScreen(
     onNavigateToChat: (driverName: String, vehicleInfo: String, pin: String, bookingId: String, isTripCompleted: Boolean) -> Unit = { _, _, _, _, _ -> }
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -78,45 +100,61 @@ fun ConversationsScreen(
             )
         }
     ) { innerPadding ->
-        Column(
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing,
+            onRefresh = viewModel::refresh,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // 1. Search Bar
-            ConversationsSearchBar(
-                query = state.searchQuery,
-                onQueryChange = viewModel::onSearchQueryChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 4.dp)
-            )
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // 1. Search Bar
+                ConversationsSearchBar(
+                    query = state.searchQuery,
+                    onQueryChange = viewModel::onSearchQueryChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp)
+                )
 
-            // 2. Filter Chips
-            FilterChipsRow(
-                selectedFilter = state.selectedFilter,
-                onFilterSelected = viewModel::onFilterSelected,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 10.dp)
-            )
+                // 2. Filter Chips
+                FilterChipsRow(
+                    selectedFilter = state.selectedFilter,
+                    onFilterSelected = viewModel::onFilterSelected,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 10.dp)
+                )
 
-            // 3. Conversation List or Empty State
-            if (state.conversations.isEmpty()) {
-                EmptyConversationsView()
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(state.conversations, key = { it.id }) { item ->
-                        ConversationItemCard(
-                            item = item,
-                            onClick = {
-                                onNavigateToChat(item.driverName, item.vehicleInfo, item.pin, item.id, !item.isActiveRide)
-                            }
-                        )
+                // 3. Conversation List, Skeleton Shimmer, or Empty State
+                if (state.isLoading && !state.isRefreshing && state.conversations.isEmpty()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(5) {
+                            ConversationItemSkeleton()
+                        }
+                    }
+                } else if (state.conversations.isEmpty()) {
+                    EmptyConversationsView()
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(state.conversations, key = { it.id }) { item ->
+                            ConversationItemCard(
+                                item = item,
+                                onClick = {
+                                    onNavigateToChat(item.driverName, item.vehicleInfo, item.pin, item.id, !item.isActiveRide)
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -326,6 +364,7 @@ private fun EmptyConversationsView(
     Box(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 32.dp),
         contentAlignment = Alignment.Center
     ) {

@@ -33,6 +33,7 @@ class ActivityViewModelTest {
     @Before
     fun setUp() {
         coEvery { userRepository.getCurrentUserUuid() } returns "user_123"
+        coEvery { bookingRepository.getPendingRequests(any()) } returns Result.success(emptyList())
         coEvery { bookingRepository.getUserActivities(any()) } returns Result.success(
             UserActivities(
                 activeTrip = BookingActivityItem(
