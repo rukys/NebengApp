@@ -95,9 +95,12 @@ class ChatViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        super.onCleared()
         if (bookingId.isNotBlank()) {
             chatRepository.setActiveChat(null)
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                chatRepository.unsubscribeChat(bookingId)
+            }
         }
+        super.onCleared()
     }
 }

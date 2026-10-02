@@ -22,5 +22,7 @@ data class ConversationItem(
 data class ConversationsUiState(
     val searchQuery: String = "",
     val selectedFilter: ConversationFilter = ConversationFilter.ALL,
-    val conversations: List<ConversationItem> = emptyList()
+    val conversations: List<ConversationItem> = emptyList(),
+    val isRefreshing: Boolean = false,
+    val isLoading: Boolean = false
 )

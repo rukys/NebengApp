@@ -1,7 +1,6 @@
-package com.disinidev.nebeng.data.repository
+﻿package com.disinidev.nebeng.data.repository
 
 import android.content.Context
-import android.util.Log
 import com.disinidev.nebeng.domain.model.RoutineCommute
 import com.disinidev.nebeng.domain.repository.RoutineRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -16,6 +15,7 @@ import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import timber.log.Timber
 
 @Serializable
 private data class RemoteRoutineCommuteDto(
@@ -105,7 +105,7 @@ class RoutineRepositoryImpl @Inject constructor(
                 saveLocalRoutines(userId, merged)
                 return@runCatching merged
             } catch (e: Exception) {
-                Log.e("RoutineRepository", "getRoutineCommutes Supabase error: ${e.message}", e)
+                Timber.e(e, "getRoutineCommutes Supabase error: ${e.message}")
             }
 
             localList
@@ -145,7 +145,7 @@ class RoutineRepositoryImpl @Inject constructor(
                 }
                 supabaseClient.from("routine_commutes").upsert(payload)
             } catch (e: Exception) {
-                Log.e("RoutineRepository", "saveRoutineCommute Supabase error: ${e.message}", e)
+                Timber.e(e, "saveRoutineCommute Supabase error: ${e.message}")
             }
 
             finalCommute
@@ -178,7 +178,7 @@ class RoutineRepositoryImpl @Inject constructor(
                     filter { eq("id", id) }
                 }
             } catch (e: Exception) {
-                Log.e("RoutineRepository", "toggleRoutineCommute Supabase error: ${e.message}", e)
+                Timber.e(e, "toggleRoutineCommute Supabase error: ${e.message}")
             }
             Unit
         }
@@ -206,7 +206,7 @@ class RoutineRepositoryImpl @Inject constructor(
                     filter { eq("id", id) }
                 }
             } catch (e: Exception) {
-                Log.e("RoutineRepository", "deleteRoutineCommute Supabase error: ${e.message}", e)
+                Timber.e(e, "deleteRoutineCommute Supabase error: ${e.message}")
             }
             Unit
         }

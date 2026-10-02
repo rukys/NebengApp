@@ -15,4 +15,5 @@ interface ChatRepository {
     ): Result<ChatMessage>
     suspend fun getUserConversations(userUuid: String): Result<List<ConversationItem>>
     fun setActiveChat(bookingId: String?)
+    suspend fun unsubscribeChat(bookingId: String)
 }

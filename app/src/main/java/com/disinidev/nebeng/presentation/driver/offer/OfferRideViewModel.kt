@@ -267,14 +267,36 @@ class OfferRideViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isPublishing = true, errorMessage = null) }
             try {
+                var pLat = state.pickupLat
+                var pLng = state.pickupLng
+                var dLat = state.dropoffLat
+                var dLng = state.dropoffLng
+
+                // Geocode pickup if still using default coordinates
+                if (pLat == -6.2297 && pLng == 106.8580 && state.pickupAddress.isNotBlank()) {
+                    val place = runCatching { locationSearchRepository.searchPlaces(state.pickupAddress).firstOrNull() }.getOrNull()
+                    if (place != null) {
+                        pLat = place.latitude
+                        pLng = place.longitude
+                    }
+                }
+                // Geocode dropoff if still using default coordinates
+                if (dLat == -6.2250 && dLng == 106.8097 && state.dropoffAddress.isNotBlank()) {
+                    val place = runCatching { locationSearchRepository.searchPlaces(state.dropoffAddress).firstOrNull() }.getOrNull()
+                    if (place != null) {
+                        dLat = place.latitude
+                        dLng = place.longitude
+                    }
+                }
+
                 val brand = state.vehicleModel.split(" ").firstOrNull()?.ifBlank { "Kendaraan" } ?: "Kendaraan"
                 val result = createRideUseCase(
                     pickupAddress = state.pickupAddress,
-                    pickupLat = state.pickupLat,
-                    pickupLng = state.pickupLng,
+                    pickupLat = pLat,
+                    pickupLng = pLng,
                     dropoffAddress = state.dropoffAddress,
-                    dropoffLat = state.dropoffLat,
-                    dropoffLng = state.dropoffLng,
+                    dropoffLat = dLat,
+                    dropoffLng = dLng,
                     vehicleBrand = brand,
                     vehicleModel = state.vehicleModel,
                     vehiclePlate = state.vehiclePlate,

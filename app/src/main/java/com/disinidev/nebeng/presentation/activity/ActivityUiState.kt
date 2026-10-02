@@ -38,6 +38,7 @@ data class ActivityUiState(
     val canceledTrips: List<TripHistoryItem> = emptyList(),
     val searchQuery: String = "",
     val isSearchActive: Boolean = false,
+    val pendingRequestsCount: Int = 0,
     val isLoading: Boolean = false,
     val isCancelling: Boolean = false,
     val isActionInProgress: Boolean = false,

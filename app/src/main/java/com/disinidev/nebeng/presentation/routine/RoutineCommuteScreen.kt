@@ -52,12 +52,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.disinidev.nebeng.core.component.NebengButton
 import com.disinidev.nebeng.core.component.NebengButtonStyle
 import com.disinidev.nebeng.core.component.NebengTextField
+import com.disinidev.nebeng.core.component.RoutineCardSkeleton
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
 import com.disinidev.nebeng.core.designsystem.NebengSpacing
@@ -67,7 +69,7 @@ import com.disinidev.nebeng.domain.model.RoutineCommute
 @Composable
 fun RoutineCommuteScreen(
     onNavigateBack: () -> Unit,
-    onSearchRide: (origin: String, destination: String, vehicleType: String) -> Unit,
+    onSearchRide: (origin: String, destination: String, vehicleType: String, pickupLat: Double, pickupLng: Double) -> Unit,
     viewModel: RoutineCommuteViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -83,18 +85,20 @@ fun RoutineCommuteScreen(
             RoutineTopBar(onNavigateBack = onNavigateBack)
         },
         bottomBar = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(NebengColor.Primary0)
-                    .navigationBarsPadding()
-                    .padding(horizontal = NebengSpacing.Md, vertical = NebengSpacing.Sm)
-            ) {
-                NebengButton(
-                    text = "+ Tambah Jadwal Rutin",
-                    onClick = { viewModel.showAddSheet(true) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            if (!uiState.isLoading && uiState.routines.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(NebengColor.Primary0)
+                        .navigationBarsPadding()
+                        .padding(horizontal = NebengSpacing.Md, vertical = NebengSpacing.Sm)
+                ) {
+                    NebengButton(
+                        text = "+ Tambah Jadwal Rutin",
+                        onClick = { viewModel.showAddSheet(true) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     ) { innerPadding ->
@@ -106,11 +110,17 @@ fun RoutineCommuteScreen(
         ) {
             when {
                 uiState.isLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = NebengSpacing.Md),
+                        verticalArrangement = Arrangement.spacedBy(NebengSpacing.Sm)
                     ) {
-                        CircularProgressIndicator(color = NebengColor.Primary900)
+                        Spacer(modifier = Modifier.height(NebengSpacing.Xs))
+                        RoutineHeaderBanner()
+                        repeat(3) {
+                            RoutineCardSkeleton()
+                        }
                     }
                 }
 
@@ -140,7 +150,9 @@ fun RoutineCommuteScreen(
                                     viewModel.toggleRoutine(routine.id, isEnabled)
                                 },
                                 onSearchToday = {
-                                    onSearchRide(routine.originName, routine.destinationName, routine.vehicleType)
+                                    val pLat = if (routine.originLat != 0.0) routine.originLat else -6.2297
+                                    val pLng = if (routine.originLng != 0.0) routine.originLng else 106.8580
+                                    onSearchRide(routine.originName, routine.destinationName, routine.vehicleType, pLat, pLng)
                                 },
                                 onDelete = {
                                     routineToDelete = routine
@@ -490,11 +502,12 @@ private fun RoutineEmptyState(onAddClicked: () -> Unit) {
             fontSize = 14.sp,
             color = NebengColor.Gray600,
             lineHeight = 20.sp,
+            textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = NebengSpacing.Md)
         )
         Spacer(modifier = Modifier.height(NebengSpacing.Lg))
         NebengButton(
-            text = "Tambah Jadwal Rutin",
+            text = "+ Tambah Jadwal Rutin",
             onClick = onAddClicked
         )
     }

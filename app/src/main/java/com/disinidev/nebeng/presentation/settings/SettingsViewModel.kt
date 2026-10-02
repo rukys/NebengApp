@@ -2,6 +2,7 @@ package com.disinidev.nebeng.presentation.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.disinidev.nebeng.domain.repository.UserPreferencesRepository
 import com.disinidev.nebeng.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,10 +14,15 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SettingsUiState())
+    private val _uiState = MutableStateFlow(
+        SettingsUiState(
+            isNotificationEnabled = userPreferencesRepository.isNotificationEnabled()
+        )
+    )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
@@ -52,7 +58,12 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun toggleNotification(enabled: Boolean) {
+        userPreferencesRepository.setNotificationEnabled(enabled)
         _uiState.update { it.copy(isNotificationEnabled = enabled) }
+    }
+
+    fun refreshProfile() {
+        loadUserProfile()
     }
 
     private fun loadUserProfile() {

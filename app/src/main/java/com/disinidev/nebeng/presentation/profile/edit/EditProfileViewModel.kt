@@ -110,7 +110,8 @@ class EditProfileViewModel @Inject constructor(
                 userRepository.updateUserProfile(
                     fullName = _uiState.value.fullName,
                     officeAddress = _uiState.value.officeBuilding,
-                    bio = _uiState.value.bio
+                    bio = _uiState.value.bio,
+                    phoneNumber = _uiState.value.whatsappNumber
                 )
                 _uiState.update {
                     it.copy(

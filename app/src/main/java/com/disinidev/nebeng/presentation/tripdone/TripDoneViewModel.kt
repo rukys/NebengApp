@@ -77,6 +77,7 @@ class TripDoneViewModel @Inject constructor(
                     else -> null
                 }
 
+                bookingRepository.completeTrip(bookingId)
                 bookingRepository.rateTrip(
                     bookingId = bookingId,
                     rating = _uiState.value.rating,

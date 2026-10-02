@@ -3,6 +3,7 @@ package com.disinidev.nebeng.presentation.routine
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.disinidev.nebeng.domain.model.RoutineCommute
+import com.disinidev.nebeng.domain.repository.LocationSearchRepository
 import com.disinidev.nebeng.domain.repository.RoutineRepository
 import com.disinidev.nebeng.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,7 +18,8 @@ import javax.inject.Inject
 @HiltViewModel
 class RoutineCommuteViewModel @Inject constructor(
     private val routineRepository: RoutineRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val locationSearchRepository: LocationSearchRepository? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RoutineCommuteUiState(isLoading = true))
@@ -93,11 +95,24 @@ class RoutineCommuteViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             val userId = userRepository.getCurrentUserUuid()
+
+            val originPlace = runCatching { locationSearchRepository?.searchPlaces(origin)?.firstOrNull() }.getOrNull()
+            val destPlace = runCatching { locationSearchRepository?.searchPlaces(destination)?.firstOrNull() }.getOrNull()
+
+            val oLat = originPlace?.latitude ?: -6.2297
+            val oLng = originPlace?.longitude ?: 106.8580
+            val dLat = destPlace?.latitude ?: -6.2250
+            val dLng = destPlace?.longitude ?: 106.8097
+
             val newRoutine = RoutineCommute(
                 id = UUID.randomUUID().toString(),
                 userId = userId,
                 originName = origin,
                 destinationName = destination,
+                originLat = oLat,
+                originLng = oLng,
+                destinationLat = dLat,
+                destinationLng = dLng,
                 departureTime = currentState.departureTimeInput.ifBlank { "07:30" },
                 activeDays = currentState.selectedDays.sorted(),
                 vehicleType = currentState.selectedVehicleType,

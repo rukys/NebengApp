@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.disinidev.nebeng.core.component.NebengButton
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
+import com.disinidev.nebeng.presentation.search.model.RideItemUi
 
 @Composable
 fun CheckoutCarScreen(
@@ -124,7 +125,12 @@ fun CheckoutCarScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
-            // 1. Driver & Car Card
+            // 1. Detail Rute & Status Komunitas Gratis
+            RideDetailSummaryCard(ride = ride)
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 2. Driver & Car Card
             DriverVehicleCard(
                 driverName = ride?.driverName ?: if (state.isLoading) "Memuat pengemudi..." else "Pengemudi",
                 vehicleInfo = ride?.vehicleModel ?: if (state.isLoading) "Memuat kendaraan..." else "-",
@@ -134,7 +140,7 @@ fun CheckoutCarScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 2. Pilih Kursi Penumpang Card
+            // 3. Pilih Kursi Penumpang Card
             CarSeatSelectionCard(
                 selectedSeat = state.selectedSeat,
                 onSeatSelected = viewModel::selectSeat
@@ -448,5 +454,135 @@ internal fun getInitials(name: String): String {
         parts.size >= 2 -> "${parts[0].firstOrNull()?.uppercase() ?: ""}${parts[1].firstOrNull()?.uppercase() ?: ""}"
         parts.isNotEmpty() -> parts[0].take(2).uppercase()
         else -> "NB"
+    }
+}
+
+@Composable
+internal fun RideDetailSummaryCard(
+    ride: RideItemUi?,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(NebengRadius.Lg))
+            .background(NebengColor.Primary0)
+            .border(1.dp, NebengColor.Gray200, RoundedCornerShape(NebengRadius.Lg))
+            .padding(16.dp)
+    ) {
+        // Free Community Badge
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(NebengColor.Primary50)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(NebengColor.Success700)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "100% Tebengan Gratis • Komunitas",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = NebengColor.Primary900
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = "Tip Sukarela",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = NebengColor.Gray600
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Route: Origin to Destination
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 2.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(NebengColor.Primary900)
+                )
+                Box(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .height(28.dp)
+                        .background(NebengColor.Gray200)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(NebengColor.Danger600)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = ride?.pickupAddress?.ifBlank { "Titik Penjemputan" } ?: "Titik Penjemputan",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NebengColor.Primary900
+                )
+                Text(
+                    text = "Jemput • ${ride?.departureTimeFormatted ?: "07:30"}",
+                    fontSize = 11.sp,
+                    color = NebengColor.Gray400
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = ride?.dropoffAddress?.ifBlank { "Titik Tujuan" } ?: "Titik Tujuan",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NebengColor.Primary900
+                )
+                Text(
+                    text = "Tiba • ${ride?.arrivalTimeFormatted ?: "08:15"}",
+                    fontSize = 11.sp,
+                    color = NebengColor.Gray400
+                )
+            }
+        }
+
+        val facilities = ride?.facilities.orEmpty()
+        if (facilities.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                facilities.take(3).forEach { tag ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(NebengColor.Primary50)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = tag,
+                            fontSize = 11.sp,
+                            color = NebengColor.Primary900,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
     }
 }

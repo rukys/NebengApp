@@ -13,7 +13,7 @@ data class UserProfileData(
     val rating: Float = 5.0f,
     val totalTrips: Int = 0,
     val role: String = "both",
-    val isKtpVerified: Boolean = true
+    val isKtpVerified: Boolean = false
 )
 
 interface UserRepository {
@@ -29,7 +29,8 @@ interface UserRepository {
     suspend fun updateUserProfile(
         fullName: String,
         officeAddress: String,
-        bio: String
+        bio: String,
+        phoneNumber: String? = null
     ): Result<Unit>
     suspend fun setupUserProfile(
         fullName: String,

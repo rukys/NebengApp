@@ -7,6 +7,8 @@ import com.disinidev.nebeng.domain.model.Ride
 import com.disinidev.nebeng.domain.model.User
 import com.disinidev.nebeng.domain.model.VehicleInfo
 import com.disinidev.nebeng.domain.model.VehicleType
+import com.disinidev.nebeng.domain.repository.BookingRepository
+import com.disinidev.nebeng.domain.repository.NotificationRepository
 import com.disinidev.nebeng.domain.repository.RideRepository
 import com.disinidev.nebeng.domain.repository.UserProfileData
 import com.disinidev.nebeng.domain.repository.UserRepository
@@ -33,6 +35,8 @@ class HomeViewModelTest {
     private val rideRepository = mockk<RideRepository>(relaxed = true)
     private val userRepository = mockk<UserRepository>(relaxed = true)
     private val locationClient = mockk<LocationClient>(relaxed = true)
+    private val bookingRepository = mockk<BookingRepository>(relaxed = true)
+    private val notificationRepository = mockk<NotificationRepository>(relaxed = true)
     private lateinit var viewModel: HomeViewModel
 
     private val sampleRide = Ride(
@@ -77,7 +81,7 @@ class HomeViewModelTest {
         )
         coEvery { rideRepository.getPopularRides() } returns Result.success(listOf(sampleRide))
 
-        viewModel = HomeViewModel(rideRepository, userRepository, locationClient)
+        viewModel = HomeViewModel(rideRepository, userRepository, locationClient, bookingRepository, notificationRepository)
     }
 
     @Test
@@ -141,9 +145,9 @@ class HomeViewModelTest {
 
     @Test
     fun `loadUnreadNotificationCount updates unread count in state`() = runTest {
-        val notifRepo = mockk<com.disinidev.nebeng.domain.repository.NotificationRepository>()
+        val notifRepo = mockk<NotificationRepository>()
         coEvery { notifRepo.getUnreadCount() } returns Result.success(5)
-        val vm = HomeViewModel(rideRepository, userRepository, locationClient, notifRepo)
+        val vm = HomeViewModel(rideRepository, userRepository, locationClient, bookingRepository, notifRepo)
         advanceUntilIdle()
 
         assertEquals(5, vm.uiState.value.unreadNotificationCount)

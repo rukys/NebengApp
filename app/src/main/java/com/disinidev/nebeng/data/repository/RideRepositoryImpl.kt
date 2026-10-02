@@ -1,6 +1,5 @@
-package com.disinidev.nebeng.data.repository
+﻿package com.disinidev.nebeng.data.repository
 
-import android.util.Log
 import com.disinidev.nebeng.data.model.RideSearchResultDto
 import com.disinidev.nebeng.domain.model.Ride
 import com.disinidev.nebeng.domain.model.RideStatus
@@ -28,6 +27,7 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import timber.log.Timber
 
 @Serializable
 private data class RemoteRideDto(
@@ -121,7 +121,7 @@ class RideRepositoryImpl @Inject constructor(
                 )
                 supabaseClient.postgrest.from("rides").insert(insertPayload)
             } catch (e: Exception) {
-                Log.e("RideRepository", "Supabase createRide error: ${e.message}", e)
+                Timber.e(e, "Supabase createRide error: ${e.message}")
             }
             newId
         }
@@ -216,7 +216,9 @@ class RideRepositoryImpl @Inject constructor(
                     facilities = it.notes?.split(",")?.map { f -> f.trim() }?.filter { f -> f.isNotEmpty() } ?: emptyList(),
                     driverRating = (it.users?.average_rating ?: 5.0f).toDouble(),
                     totalTrips = it.users?.total_trips ?: 0,
-                    isOfficeVerified = true
+                    isOfficeVerified = true,
+                    pickupAddress = it.pickup_address,
+                    dropoffAddress = it.dropoff_address
                 )
             }
         }

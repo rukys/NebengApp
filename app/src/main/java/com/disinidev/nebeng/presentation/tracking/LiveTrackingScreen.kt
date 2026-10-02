@@ -30,7 +30,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Security
@@ -42,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -82,7 +85,7 @@ fun LiveTrackingScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var projectedPoints by remember { mutableStateOf<ProjectedTrackingPoints?>(null) }
-    var recenterTrigger by remember { mutableStateOf(0) }
+    var recenterTrigger by remember { mutableIntStateOf(0) }
 
     Box(modifier = modifier.fillMaxSize()) {
         // 1. Interactive OpenStreetMap (MapLibre Native)
@@ -143,13 +146,12 @@ fun LiveTrackingScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // ETA Pill (Center - clickable to trigger trip completion)
+                // ETA Pill (Center)
                 Box(
                     modifier = Modifier
                         .shadow(4.dp, RoundedCornerShape(NebengRadius.Full))
                         .clip(RoundedCornerShape(NebengRadius.Full))
                         .background(NebengColor.Primary900)
-                        .clickable { onTripFinished(state.bookingId) }
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -164,7 +166,13 @@ fun LiveTrackingScreen(
                                 .background(NebengColor.Primary0)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        val etaText = if (state.isArrived) "Driver Tiba • Siap Berangkat" else "Tiba dlm ${state.etaMinutes} mnt • ${state.distanceMeters}m"
+                        val etaText = when (state.tripStage) {
+                            TripStage.WAITING_FOR_DRIVER -> "Menunggu Konfirmasi Driver"
+                            TripStage.PICKUP_EN_ROUTE -> "Jemput • ${state.etaMinutes} mnt (${state.distanceMeters}m)"
+                            TripStage.PICKUP_ARRIVED -> "Driver Tiba • Verifikasi PIN"
+                            TripStage.IN_TRANSIT -> "Menuju Tujuan • ${state.etaMinutes} mnt (${state.currentSpeedKmh} km/h)"
+                            TripStage.ARRIVED_DESTINATION -> "Tiba di Destinasi!"
+                        }
                         AnimatedContent(
                             targetState = etaText,
                             transitionSpec = {
@@ -238,37 +246,63 @@ fun LiveTrackingScreen(
                             color = NebengColor.Primary900
                         )
                         Spacer(modifier = Modifier.height(2.dp))
+                        val subtitleText = when (state.tripStage) {
+                            TripStage.WAITING_FOR_DRIVER -> "Pengemudi sedang memeriksa pesanan Anda"
+                            TripStage.PICKUP_EN_ROUTE -> "${state.vehicleModel} • ${state.vehiclePlate}"
+                            TripStage.PICKUP_ARRIVED -> "Tunjukkan PIN jemput kepada pengemudi"
+                            TripStage.IN_TRANSIT -> "Menuju ${state.destinationLocation.ifBlank { "Destinasi" }} • ${state.currentSpeedKmh} km/jam"
+                            TripStage.ARRIVED_DESTINATION -> "Tiba di tujuan • Terima kasih telah nebeng!"
+                        }
                         Text(
-                            text = if (state.isArrived) "Tunjukkan PIN jemput kepada pengemudi" else "${state.vehicleModel} • ${state.vehiclePlate}",
+                            text = subtitleText,
                             fontSize = 12.sp,
-                            color = if (state.isArrived) NebengColor.Primary900 else NebengColor.Gray400,
-                            fontWeight = if (state.isArrived) FontWeight.Bold else FontWeight.Normal
+                            color = if (state.tripStage == TripStage.PICKUP_ARRIVED) NebengColor.Primary900 else NebengColor.Gray400,
+                            fontWeight = if (state.tripStage == TripStage.PICKUP_ARRIVED) FontWeight.Bold else FontWeight.Normal
                         )
                     }
 
-                    // PIN Badge
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(NebengColor.Primary900)
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = "PIN: ${state.bookingPin}",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = NebengColor.Primary0,
-                            letterSpacing = 0.5.sp,
-                            style = TextStyle(
-                                platformStyle = PlatformTextStyle(includeFontPadding = false)
+                    // PIN or Speed Badge
+                    if (state.tripStage == TripStage.PICKUP_EN_ROUTE || state.tripStage == TripStage.PICKUP_ARRIVED) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(NebengColor.Primary900)
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "PIN: ${state.bookingPin}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NebengColor.Primary0,
+                                letterSpacing = 0.5.sp,
+                                style = TextStyle(
+                                    platformStyle = PlatformTextStyle(includeFontPadding = false)
+                                )
                             )
-                        )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (state.tripStage == TripStage.ARRIVED_DESTINATION) NebengColor.Success700 else NebengColor.Primary50)
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = if (state.tripStage == TripStage.ARRIVED_DESTINATION) "Selesai" else "${state.currentSpeedKmh} km/j",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (state.tripStage == TripStage.ARRIVED_DESTINATION) NebengColor.Primary0 else NebengColor.Primary900,
+                                style = TextStyle(
+                                    platformStyle = PlatformTextStyle(includeFontPadding = false)
+                                )
+                            )
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Action Buttons Row: Bagikan Rute & Chat Driver / Mulai Perjalanan
+                // Action Buttons Row: Bagikan Rute & Chat / Mulai / Selesai Perjalanan
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -306,22 +340,45 @@ fun LiveTrackingScreen(
                         }
                     }
 
-                    // Button: Chat Driver OR Mulai Perjalanan (if arrived)
+                    // Button: Chat Driver OR Mulai Perjalanan OR Selesaikan Perjalanan OR Batalkan
+                    val buttonActionText = when (state.tripStage) {
+                        TripStage.WAITING_FOR_DRIVER -> "Batalkan Pesanan"
+                        TripStage.PICKUP_ARRIVED -> "Mulai Perjalanan ➔"
+                        TripStage.ARRIVED_DESTINATION -> "Selesaikan Perjalanan ➔"
+                        else -> "Chat Driver"
+                    }
+
+                    val buttonBgColor = when (state.tripStage) {
+                        TripStage.WAITING_FOR_DRIVER -> NebengColor.Danger600
+                        else -> NebengColor.Primary900
+                    }
+
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
                             .clip(RoundedCornerShape(NebengRadius.Lg))
-                            .background(NebengColor.Primary900)
+                            .background(buttonBgColor)
                             .clickable {
-                                if (state.isArrived) {
-                                    onTripFinished(state.bookingId)
-                                } else {
-                                    val vehicle = listOfNotNull(state.vehicleModel, state.vehiclePlate)
-                                        .filter { it.isNotBlank() }
-                                        .joinToString(" • ")
-                                        .ifBlank { "Kendaraan" }
-                                    onNavigateToChat(state.driverName, state.bookingId, vehicle, state.bookingPin)
+                                when (state.tripStage) {
+                                    TripStage.WAITING_FOR_DRIVER -> {
+                                        viewModel.cancelTrip { onNavigateBack() }
+                                    }
+                                    TripStage.PICKUP_ARRIVED -> {
+                                        viewModel.startInTransitTrip()
+                                    }
+                                    TripStage.ARRIVED_DESTINATION -> {
+                                        viewModel.completeTrip {
+                                            onTripFinished(state.bookingId)
+                                        }
+                                    }
+                                    else -> {
+                                        val vehicle = listOfNotNull(state.vehicleModel, state.vehiclePlate)
+                                            .filter { it.isNotBlank() }
+                                            .joinToString(" • ")
+                                            .ifBlank { "Kendaraan" }
+                                        onNavigateToChat(state.driverName, state.bookingId, vehicle, state.bookingPin)
+                                    }
                                 }
                             },
                         contentAlignment = Alignment.Center
@@ -330,17 +387,20 @@ fun LiveTrackingScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
+                            val actionIcon = when (state.tripStage) {
+                                TripStage.WAITING_FOR_DRIVER -> Icons.Default.Close
+                                TripStage.PICKUP_ARRIVED, TripStage.ARRIVED_DESTINATION -> Icons.AutoMirrored.Filled.ArrowForward
+                                else -> Icons.AutoMirrored.Filled.Chat
+                            }
                             Icon(
-                                imageVector = if (state.isArrived) Icons.AutoMirrored.Filled.ArrowBack else Icons.AutoMirrored.Filled.Chat,
+                                imageVector = actionIcon,
                                 contentDescription = null,
                                 tint = NebengColor.Primary0,
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .then(if (state.isArrived) Modifier.clip(CircleShape) else Modifier)
+                                modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (state.isArrived) "Mulai Perjalanan ➔" else "Chat Driver",
+                                text = buttonActionText,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = NebengColor.Primary0,

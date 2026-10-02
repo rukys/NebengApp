@@ -4,6 +4,7 @@ import com.disinidev.nebeng.data.repository.AuthRepositoryImpl
 import com.disinidev.nebeng.data.repository.BookingRepositoryImpl
 import com.disinidev.nebeng.data.repository.ChatRepositoryImpl
 import com.disinidev.nebeng.data.repository.NotificationRepositoryImpl
+import com.disinidev.nebeng.data.repository.RoutineRepositoryImpl
 import com.disinidev.nebeng.data.repository.TripLocationRepositoryImpl
 import com.disinidev.nebeng.data.repository.UserRepositoryImpl
 import com.disinidev.nebeng.data.repository.VehicleRepositoryImpl
@@ -11,6 +12,7 @@ import com.disinidev.nebeng.domain.repository.AuthRepository
 import com.disinidev.nebeng.domain.repository.BookingRepository
 import com.disinidev.nebeng.domain.repository.ChatRepository
 import com.disinidev.nebeng.domain.repository.NotificationRepository
+import com.disinidev.nebeng.domain.repository.RoutineRepository
 import com.disinidev.nebeng.domain.repository.TripLocationRepository
 import com.disinidev.nebeng.domain.repository.UserRepository
 import com.disinidev.nebeng.domain.repository.VehicleRepository
@@ -69,6 +71,6 @@ abstract class BookingModule {
     @Binds
     @Singleton
     abstract fun bindRoutineRepository(
-        impl: com.disinidev.nebeng.data.repository.RoutineRepositoryImpl
-    ): com.disinidev.nebeng.domain.repository.RoutineRepository
+        impl: RoutineRepositoryImpl
+    ): RoutineRepository
 }

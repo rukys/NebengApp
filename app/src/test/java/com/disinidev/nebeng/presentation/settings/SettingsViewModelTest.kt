@@ -1,9 +1,11 @@
 package com.disinidev.nebeng.presentation.settings
 
+import com.disinidev.nebeng.domain.repository.UserPreferencesRepository
 import com.disinidev.nebeng.domain.repository.UserProfileData
 import com.disinidev.nebeng.domain.repository.UserRepository
 import com.disinidev.nebeng.util.MainDispatcherRule
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -22,20 +24,23 @@ class SettingsViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val userRepository = mockk<UserRepository>(relaxed = true)
+    private val userPreferencesRepository = mockk<UserPreferencesRepository>(relaxed = true)
     private lateinit var viewModel: SettingsViewModel
 
     @Before
     fun setUp() {
+        every { userPreferencesRepository.isNotificationEnabled() } returns true
         coEvery { userRepository.getUserProfile() } returns Result.success(
             UserProfileData(
                 id = "user_123",
                 fullName = "Budi Santoso",
                 phoneNumber = "+62 812-3456-7890",
-                email = "budi.santoso@email.com"
+                email = "budi.santoso@email.com",
+                isKtpVerified = true
             )
         )
         coEvery { userRepository.logout() } returns Result.success(Unit)
-        viewModel = SettingsViewModel(userRepository)
+        viewModel = SettingsViewModel(userRepository, userPreferencesRepository)
     }
 
     @Test

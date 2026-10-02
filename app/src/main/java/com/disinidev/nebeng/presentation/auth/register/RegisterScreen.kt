@@ -98,34 +98,23 @@ fun RegisterScreen(
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Logo Header: Black box with "N" + "Nebeng"
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(NebengColor.Primary900),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "N",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
+            // Top Header: Brand Wordmark
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     text = "Nebeng",
                     fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NebengColor.Primary900
+                    fontWeight = FontWeight.Black,
+                    color = NebengColor.Primary900,
+                    letterSpacing = (-0.5).sp
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             // Title & Subtitle
             Text(

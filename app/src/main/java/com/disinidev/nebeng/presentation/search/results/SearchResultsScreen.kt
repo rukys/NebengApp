@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.disinidev.nebeng.core.component.RideCardSkeleton
 import com.disinidev.nebeng.core.designsystem.NebengColor
 import com.disinidev.nebeng.core.designsystem.NebengRadius
 import com.disinidev.nebeng.domain.model.VehicleType
@@ -182,7 +183,11 @@ fun SearchResultsScreen(
             }
 
             // 3. Rides List
-            if (state.displayedRides.isEmpty()) {
+            if (state.isLoading) {
+                items(4) {
+                    RideCardSkeleton()
+                }
+            } else if (state.displayedRides.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier

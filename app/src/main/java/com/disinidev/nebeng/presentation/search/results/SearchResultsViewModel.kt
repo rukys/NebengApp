@@ -182,7 +182,23 @@ class SearchResultsViewModel @Inject constructor(
                 result = result.filter { it.driverRating >= filter.minRating }
             }
 
-            // 4. Sorting
+            // 4. Destination matching & prioritization
+            if (navDropoff.isNotBlank()) {
+                val dropoffKeywords = navDropoff.lowercase().split(" ", ",", "-")
+                    .filter { it.length >= 3 }
+                if (dropoffKeywords.isNotEmpty()) {
+                    val matching = result.filter { ride ->
+                        val rDropoff = ride.dropoffAddress.lowercase()
+                        dropoffKeywords.any { kw -> rDropoff.contains(kw) }
+                    }
+                    if (matching.isNotEmpty()) {
+                        val nonMatching = result.filter { it !in matching }
+                        result = matching + nonMatching
+                    }
+                }
+            }
+
+            // 5. Sorting
             result = when {
                 tab == VehicleFilter.FASTEST || filter.sortBy == SortBy.FASTEST ->
                     result.sortedBy { it.departureTimeFormatted }

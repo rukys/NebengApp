@@ -1,7 +1,6 @@
-package com.disinidev.nebeng.data.repository
+﻿package com.disinidev.nebeng.data.repository
 
 import android.content.Context
-import android.util.Log
 import com.disinidev.nebeng.domain.model.VehicleInfo
 import com.disinidev.nebeng.domain.model.VehicleType
 import com.disinidev.nebeng.domain.repository.VehicleRepository
@@ -16,6 +15,7 @@ import kotlinx.serialization.json.Json
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import timber.log.Timber
 
 @Serializable
 private data class RemoteVehicleDto(
@@ -64,7 +64,7 @@ class VehicleRepositoryImpl @Inject constructor(
             val raw = json.encodeToString(list)
             prefs.edit().putString(KEY_PREFIX + driverId, raw).apply()
         } catch (e: Exception) {
-            Log.e("VehicleRepository", "savePersistedVehicles error: ${e.message}", e)
+            Timber.e(e, "savePersistedVehicles error: ${e.message}")
         }
     }
 
@@ -94,7 +94,7 @@ class VehicleRepositoryImpl @Inject constructor(
                 savePersistedVehicles(driverId, merged)
                 return@runCatching merged
             } catch (e: Exception) {
-                Log.e("VehicleRepository", "getDriverVehicles Supabase error: ${e.message}", e)
+                Timber.e(e, "getDriverVehicles Supabase error: ${e.message}")
             }
 
             localList
@@ -130,7 +130,7 @@ class VehicleRepositoryImpl @Inject constructor(
                 }
                 supabaseClient.from("vehicle_registrations").insert(payload)
             } catch (e: Exception) {
-                Log.e("VehicleRepository", "addVehicle Supabase error: ${e.message}", e)
+                Timber.e(e, "addVehicle Supabase error: ${e.message}")
             }
 
             domainWithId
@@ -159,7 +159,7 @@ class VehicleRepositoryImpl @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                Log.e("VehicleRepository", "deleteVehicle Supabase error: ${e.message}", e)
+                Timber.e(e, "deleteVehicle Supabase error: ${e.message}")
             }
             Unit
         }

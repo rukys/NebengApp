@@ -1,6 +1,5 @@
 package com.disinidev.nebeng.presentation.tip
 
-import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import timber.log.Timber
 
 import com.disinidev.nebeng.domain.repository.UserRepository
 
@@ -37,13 +37,15 @@ class TipViewModel @Inject constructor(
             bookingRepository.getBookingById(bookingId)
                 .onSuccess { booking ->
                     _uiState.update { it.copy(driverName = booking.driverName.ifBlank { "Pengemudi" }) }
-                    // Also check for driver's QRIS barcode
-                    userRepository.getDriverQrisUrl(booking.driverName)
-                        .onSuccess { url ->
-                            if (!url.isNullOrBlank()) {
-                                _uiState.update { it.copy(driverQrisUrl = url) }
+                    val targetDriverId = booking.driverId.ifBlank { booking.driverName }
+                    if (targetDriverId.isNotBlank()) {
+                        userRepository.getDriverQrisUrl(targetDriverId)
+                            .onSuccess { url ->
+                                if (!url.isNullOrBlank()) {
+                                    _uiState.update { it.copy(driverQrisUrl = url) }
+                                }
                             }
-                        }
+                    }
                 }
         }
     }
@@ -79,7 +81,7 @@ class TipViewModel @Inject constructor(
             try {
                 // Tip is a courtesy feature — log and mark complete.
                 // Real-money integration can be added later if needed.
-                Log.d("TipViewModel", "Tip of Rp$amount sent for booking $bookingId")
+                Timber.d("Tip of Rp$amount sent for booking $bookingId")
                 _uiState.update { it.copy(isSubmitting = false, isCompleted = true) }
                 onSuccess()
             } catch (e: Exception) {
